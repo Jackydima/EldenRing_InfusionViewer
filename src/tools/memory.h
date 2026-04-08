@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <thread>
@@ -21,7 +22,47 @@ namespace tools
 			PatternItem(BYTE a_Value, BYTE a_Mask): m_Value(a_Value), m_Mask(a_Mask) {}
 		};
 
-		uintptr_t searchUniqueAOB(uintptr_t p_uStartAddress, size_t p_uSize, const std::string& p_strPattern, const char p_cWildCard);
+		template <typename T>
+		inline T readPointer(uintptr_t a_lBase, std::vector<intptr_t> a_lOffsets)
+		{
+			if (a_lBase == 0)
+				return reinterpret_cast<T>(nullptr);
+
+			if (a_lOffsets.empty())
+				return reinterpret_cast<T>(a_lBase);
+
+			uintptr_t current = a_lBase;
+			for (size_t offset : a_lOffsets)
+			{
+				current = *reinterpret_cast<uintptr_t*>(current);
+				if (current == 0)
+					return reinterpret_cast<T>(nullptr);
+				current += offset;
+			}
+
+			return reinterpret_cast<T>(current);
+		}
+
+		template <typename T>
+		inline T readOffSet(uintptr_t a_lBase, int64_t a_lOffset)
+		{
+			if (a_lBase == 0)
+				return reinterpret_cast<T>(nullptr);
+
+			return reinterpret_cast<T>(a_lBase + a_lOffset);
+		}
+
+		template <typename T>
+		inline bool writePointer(uintptr_t a_lBase, T a_Value)
+		{
+			if (a_lBase == 0)
+				return false;
+
+			*reinterpret_cast<T*>(a_lBase) = a_Value;
+			return true;
+		}
+
+		uintptr_t searchUniqueAOB(uintptr_t p_uStartAddress, size_t p_uSize, const std::string& p_strPattern, const char a_cWildCard = '?');
 
 		inline BYTE hexCharToNibble(char c)
 		{

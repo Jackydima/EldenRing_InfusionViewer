@@ -19,7 +19,7 @@ namespace tools
 			size_t uNewSize = a_uSize / 4;
 		}*/
 
-		uintptr_t searchUniqueAOB(uintptr_t a_uStartAddress, size_t a_uSize, const std::string& a_rStrPattern, const char a_cWildCard = '?')
+		uintptr_t searchUniqueAOB(uintptr_t a_uStartAddress, size_t a_uSize, const std::string& a_rStrPattern, const char a_cWildCard)
 		{
 			uintptr_t uReturnVal = 0;
 

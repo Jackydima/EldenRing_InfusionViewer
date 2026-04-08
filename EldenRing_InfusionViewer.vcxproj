@@ -12,10 +12,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\shared\bases\spEffectParam.cpp" />
+    <ClCompile Include="src\shared\params\params.cpp" />
+    <ClCompile Include="src\shared\shared.cpp" />
     <ClCompile Include="src\tools\memory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\main.h" />
+    <ClInclude Include="src\shared\bases\Effect.h" />
+    <ClInclude Include="src\shared\bases\spEffectParam.h" />
+    <ClInclude Include="src\shared\params\params.h" />
+    <ClInclude Include="src\shared\shared.h" />
     <ClInclude Include="src\tools\debug_print.h" />
     <ClInclude Include="src\tools\memory.h" />
   </ItemGroup>

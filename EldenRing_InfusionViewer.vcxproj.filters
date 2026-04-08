@@ -21,6 +21,15 @@
     <ClCompile Include="src\tools\memory.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="src\shared\params\params.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shared\shared.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shared\bases\spEffectParam.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\tools\debug_print.h">
@@ -30,6 +39,18 @@
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="src\main.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\params\params.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\shared.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\bases\spEffectParam.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\bases\Effect.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
