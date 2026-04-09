@@ -2,37 +2,41 @@
 
 namespace bases
 {
-    SpEffectParam::SpEffectParam() : Base(0), Count(0), EffectIdAddress(0), EffectOffsetAddress(0) {}
+    SpEffectParam::SpEffectParam(): ParamBase() {}
 
-    void SpEffectParam::init(uintptr_t SoloParamRepository)
+    bool SpEffectParam::init(uintptr_t SoloParamRepository)
     {
-        this->Base = *tools::memory::readPointer<uintptr_t*>(SoloParamRepository, { 0x4C0, 0x80, 0x80 });
-        logger::println("SpEffectParam: %p", reinterpret_cast<LPVOID>(this->Base));
-        this->Count = *tools::memory::readOffSet<WORD*>(this->Base, 0x0A);
-        this->EffectIdAddress = this->Base + 0x40;
-        this->EffectOffsetAddress = this->Base + 0x48;
+        this->m_Base = memory::readPointerSafe<uintptr_t*>(SoloParamRepository, { 0x4C0, 0x80, 0x80 });
+        logger::println("SpEffectParam: %p", reinterpret_cast<LPVOID>(this->m_Base));
+        if (!memory::isReadable(reinterpret_cast<uintptr_t>(m_Base)))
+            return false;
+
+        this->m_Count = *memory::readOffSet<WORD*>(*this->m_Base, 0x0A);
+        this->m_IdAddressStart = *this->m_Base + 0x40;
+        this->m_OffsetAddressStart = *this->m_Base + 0x48;
 
         int32_t currentID;
         int32_t currentOffset;
 
-        for (WORD i = 0; i < this->Count; i++)
+        for (WORD i = 0; i < this->m_Count; i++)
         {
-            currentID = *tools::memory::readOffSet<int32_t*>(this->EffectIdAddress, i * EffectIdAddressJumpOffset);
-            currentOffset = *tools::memory::readOffSet<int32_t*>(this->EffectOffsetAddress, i * EffectIdAddressJumpOffset);
-            this->EffecIdtMap.insert({currentID, currentOffset});
+            currentID = *memory::readOffSet<int32_t*>(this->m_IdAddressStart, i * EffectIdAddressJumpOffset);
+            currentOffset = *memory::readOffSet<int32_t*>(this->m_OffsetAddressStart, i * EffectIdAddressJumpOffset);
+            this->EffecIdMap.insert({currentID, currentOffset});
         }
+        return true;
     }
 
     EffectData* SpEffectParam::GetEffectById(int a_ID)
     {
-        auto effectOffset = this->EffecIdtMap.find(a_ID);
-        if (effectOffset == this->EffecIdtMap.end())
+        auto effectOffset = this->EffecIdMap.find(a_ID);
+        if (effectOffset == this->EffecIdMap.end())
         {
             logger::println("Id not found in GetEffectById");
             return nullptr;
         }
 
-        return reinterpret_cast<EffectData*>(this->Base + effectOffset->second);
+        return reinterpret_cast<EffectData*>(*this->m_Base + effectOffset->second);
     }
 
     // We want to modify when getting an effect, so create a backup!
@@ -62,8 +66,8 @@ namespace bases
 
     bool SpEffectParam::RestoreEffectById(int a_ID)
     {
-        auto effectOffset = this->EffecIdtMap.find(a_ID);
-        if (effectOffset == this->EffecIdtMap.end())
+        auto effectOffset = this->EffecIdMap.find(a_ID);
+        if (effectOffset == this->EffecIdMap.end())
         {
             logger::println("Effect Id does not exist, at RestoreEffectById");
             return false;
@@ -76,7 +80,7 @@ namespace bases
             return false;
         }
 
-        EffectData* effectData = reinterpret_cast<EffectData*>(this->Base + effectOffset->second);
+        EffectData* effectData = reinterpret_cast<EffectData*>(*this->m_Base + effectOffset->second);
         *effectData = originalEffect->second.data;
         return true;
 
@@ -87,14 +91,14 @@ namespace bases
     {
         for (auto originalEffect = this->OriginalEffects.begin(); originalEffect != this->OriginalEffects.end(); originalEffect++)
         {
-            auto effectOffset = this->EffecIdtMap.find(originalEffect->second.effectID);
-            if (effectOffset == this->EffecIdtMap.end())
+            auto effectOffset = this->EffecIdMap.find(originalEffect->second.effectID);
+            if (effectOffset == this->EffecIdMap.end())
             {
                 logger::println("Effect Id does not exist, at RestoreOriginalState");
                 continue;
             }
 
-            EffectData* effectData = reinterpret_cast<EffectData*>(this->Base + effectOffset->second);
+            EffectData* effectData = reinterpret_cast<EffectData*>(*this->m_Base + effectOffset->second);
             *effectData = originalEffect->second.data;
         }
     }
@@ -103,9 +107,4 @@ namespace bases
     {
         RestoreOriginalState();
     }
-
-	uintptr_t SpEffectParam::GetBase() { return this->Base; }
-	WORD SpEffectParam::GetSize() { return this->Count; }
-	uintptr_t SpEffectParam::GetEffectIdAddress() { return this->EffectIdAddress; }
-	uintptr_t SpEffectParam::GetEffectOffsetAddress() { return this->EffectOffsetAddress; }
 }

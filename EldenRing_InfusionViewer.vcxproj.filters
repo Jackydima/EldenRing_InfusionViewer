@@ -24,10 +24,10 @@
     <ClCompile Include="src\shared\params\params.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="src\shared\shared.cpp">
+    <ClCompile Include="src\shared\bases\bases.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="src\shared\bases\spEffectParam.cpp">
+    <ClCompile Include="src\shared\params\effect\spEffectParam.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>
@@ -44,13 +44,13 @@
     <ClInclude Include="src\shared\params\params.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="src\shared\shared.h">
+    <ClInclude Include="src\shared\bases\bases.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="src\shared\bases\spEffectParam.h">
+    <ClInclude Include="src\shared\params\effect\Effect.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="src\shared\bases\Effect.h">
+    <ClInclude Include="src\shared\params\effect\spEffectParam.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>

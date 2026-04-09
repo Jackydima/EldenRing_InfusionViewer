@@ -380,15 +380,17 @@ struct EffectData {
 static_assert(sizeof(EffectData) == 0x390, "Size mismatch!");
 
 struct Effect {
+	int32_t effectID;
     EffectData data;
-    int32_t effectID;
 };
 
 const int g_FireEffectR = 62;
 const int g_FireEffectL = 5100;
 
-const int g_LightningEffectR = 8720; // alt 8720, 151
-const int g_LightningEffectL = 8721; // alt 8721, 5105;
+//const int g_LightningEffectR = 8720; // alt 8720, 151
+const int g_LightningEffectR = 151; // alt 8720, 151
+//const int g_LightningEffectL = 8721; // alt 8721, 5105;
+const int g_LightningEffectL = 5105; // alt 8721, 5105;
 
 const int g_SacradEffectR = 61;
 const int g_SacradEffectL = 5140;
