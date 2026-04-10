@@ -50,7 +50,6 @@ namespace bases
 
         if (this->OriginalEffects.find(a_ID) != this->OriginalEffects.end())
         {
-            logger::println("Effect with ID (%d) already modified", a_ID);
             return effectData;
         }
 
@@ -76,7 +75,6 @@ namespace bases
         auto originalEffect = this->OriginalEffects.find(a_ID);
         if (originalEffect == this->OriginalEffects.end())
         {
-            logger::println("Effect was not modified yet!");
             return false;
         }
 

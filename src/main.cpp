@@ -1,7 +1,8 @@
 
 #include "main.h"
 
-EffectData* selfVisual;
+static const int PLAYER_AMOUNT = 6;
+static int g_EffectList[PLAYER_AMOUNT] = {86, 15, 17, 5, 36, 46};
 
 enum WeaponInfusion
 {
@@ -21,26 +22,30 @@ static WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
     return static_cast<WeaponInfusion>((a_iWeaponID / 100) % 100);
 }
 
-static void ProcessPlayerInfusion(uintptr_t currentPlayer)
+static void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_EffectID)
 {
-    if (!memory::isReadable(currentPlayer))
+    if (!memory::isReadable(a_CurrentPlayer))
         return;
 
-    int32_t* currentRightWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::currentRightWep);
-    int32_t* currentLeftWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::currentLeftWep);
-    int8_t* currentArmStyle = memory::readPointerSafe<int8_t*>(currentPlayer, bases::playerEquipmentOffset::currentArmStyle);
+    int32_t* currentRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::currentRightWep);
+    int32_t* currentLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::currentLeftWep);
+    int8_t* currentArmStyle = memory::readPointerSafe<int8_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::currentArmStyle);
 
     if (!currentRightWep || !currentLeftWep || !currentArmStyle)
         return;
 
-    int32_t* primRightWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::primRightWep);
-    int32_t* primLeftWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::primLeftWep);
-    int32_t* secRightWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::secRightWep);
-    int32_t* secLeftWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::secLeftWep);
-    int32_t* tertRightWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::tertRightWep);
-    int32_t* tertLeftWep = memory::readPointerSafe<int32_t*>(currentPlayer, bases::playerEquipmentOffset::tertLeftWep);
+    int32_t* primRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::primRightWep);
+    int32_t* primLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::primLeftWep);
+    int32_t* secRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::secRightWep);
+    int32_t* secLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::secLeftWep);
+    int32_t* tertRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::tertRightWep);
+    int32_t* tertLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerEquipmentOffset::tertLeftWep);
 
     if (!primRightWep || !primLeftWep || !secRightWep || !secLeftWep || !tertRightWep || !tertLeftWep)
+        return;
+
+    EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(a_EffectID);
+    if (!effectData)
         return;
 
     int32_t rightItemID = 0;
@@ -146,23 +151,23 @@ static void ProcessPlayerInfusion(uintptr_t currentPlayer)
         rightVfxID = -1;
     }
 
-    selfVisual->vfxId = rightVfxID;
-    selfVisual->vfxId1 = leftVfxID;
+    effectData->vfxId = rightVfxID;
+    effectData->vfxId1 = leftVfxID;
 
-    bases::AddEffect(*reinterpret_cast<uintptr_t**>(currentPlayer), 17, true);
+    bases::AddEffect(*reinterpret_cast<uintptr_t**>(a_CurrentPlayer), a_EffectID, true);
 }
 
 static void MainLoop()
 {
     uintptr_t** currentPlayer;
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
         currentPlayer = bases::getPlayerPtrByIndex(i);
 
         if (!currentPlayer)
             continue;
 
-        ProcessPlayerInfusion(reinterpret_cast<uintptr_t>(currentPlayer));
+        ProcessPlayerInfusion(reinterpret_cast<uintptr_t>(currentPlayer), g_EffectList[i]);
     }
 }
 
@@ -184,17 +189,37 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
     }
 
     // Init Effect Modding
-    selfVisual = bases::SpEffectParamInst.StartEffectModdingById(17);
-    if (selfVisual == nullptr)
+    for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
-        logger::println("Nullpointer EffectData");
-        FreeLibraryAndExitThread((HMODULE)lpParam, 0);
-        return 0;
-    }
+        EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
+        if (effectData == nullptr)
+        {
+            logger::println("Nullpointer EffectData");
+            FreeLibraryAndExitThread((HMODULE)lpParam, 0);
+            return 0;
+        }
 
-    selfVisual->effectEndurance = -1.0f;
-    selfVisual->spCategory = 0;
-    selfVisual->effectTargetSelf = 1; // TargetSelf Active!
+        effectData->effectEndurance = -1.0f;
+        effectData->spCategory = 0;
+        effectData->stateInfo = 0;
+        if (i == 0) // SelfPlayer
+        {
+            effectData->effectTargetSelf = 1; // TargetSelf Active!
+            effectData->effectTargetPlayer = 1;
+            effectData->effectTargetEnemy = 0;
+            effectData->effectTargetFriend = 0;
+            effectData->effectTargetEnemy = 0;
+           
+        }
+        else
+        {
+            effectData->effectTargetSelf = 0;
+            effectData->effectTargetPlayer = 1;
+            effectData->effectTargetEnemy = 1;
+            effectData->effectTargetFriend = 1;
+            effectData->effectTargetEnemy = 1;
+        }
+    }
     
     while (true)
     {
@@ -207,14 +232,14 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
 
     {
         uintptr_t** currentPlayer;
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < PLAYER_AMOUNT; i++)
         {
             currentPlayer = bases::getPlayerPtrByIndex(i);
 
             if (!currentPlayer || !*currentPlayer)
                 continue;
 
-            bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), 17);
+            bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), g_EffectList[i]);
         }
     }
     
