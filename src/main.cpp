@@ -1,6 +1,8 @@
 
 #include "main.h"
 
+bool g_Running = true;
+
 static const int PLAYER_AMOUNT = 6;
 static int g_EffectList[PLAYER_AMOUNT] = {86, 15, 17, 5, 36, 46};
 
@@ -164,7 +166,7 @@ static void MainLoop()
     {
         currentPlayer = bases::getPlayerPtrByIndex(i);
 
-        if (!currentPlayer)
+        if (!currentPlayer || !memory::isReadable(reinterpret_cast<uintptr_t>(currentPlayer)))
             continue;
 
         ProcessPlayerInfusion(reinterpret_cast<uintptr_t>(currentPlayer), g_EffectList[i]);
@@ -187,6 +189,12 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         logger::println("Initilializing bases went wrong :/");
         Sleep(1000);
     }
+
+    if (!InitMenu(&g_Running))
+    {
+        logger::println("Could not initilialize Hooking Rendering");
+    }
+
 
     // Init Effect Modding
     for (int i = 0; i < PLAYER_AMOUNT; i++)
@@ -221,10 +229,10 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         }
     }
     
-    while (true)
+    while (g_Running)
     {
-        if (GetAsyncKeyState(VK_F10) < 0)
-            break;
+        //if (GetAsyncKeyState(VK_F10) < 0)
+        //    break;
 
         MainLoop();
         Sleep(50);
@@ -242,6 +250,10 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
             bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), g_EffectList[i]);
         }
     }
+
+    CleanUpMenu();
+
+    Sleep(100);
     
     FreeLibraryAndExitThread((HMODULE)lpParam, 0);
     return 0;
