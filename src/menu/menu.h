@@ -10,9 +10,17 @@
 #include <d3d12.h>
 #include <dxgi1_4.h>
 
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
+
+#include <Xinput.h>
+
 #pragma comment(lib, "libMinHook.x64.lib")
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "Dinput8.lib")
+#pragma comment(lib, "Dxguid.lib")
+#pragma comment(lib, "Xinput.lib")
 
 #include "../tools/debug_print.h"
 
@@ -23,5 +31,5 @@ struct FrameContext {
     D3D12_CPU_DESCRIPTOR_HANDLE RTV;
 };
 
-bool InitMenu(bool* a_RunningParam);
+bool InitMenu(HMODULE a_Module, bool* a_RunningParam);
 bool CleanUpMenu();

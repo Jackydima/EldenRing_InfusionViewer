@@ -190,7 +190,7 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         Sleep(1000);
     }
 
-    if (!InitMenu(&g_Running))
+    if (!InitMenu((HMODULE)lpParam ,&g_Running))
     {
         logger::println("Could not initilialize Hooking Rendering");
     }
@@ -251,10 +251,9 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         }
     }
 
+    Sleep(100);
     CleanUpMenu();
 
-    Sleep(100);
-    
     FreeLibraryAndExitThread((HMODULE)lpParam, 0);
     return 0;
 }

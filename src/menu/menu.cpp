@@ -1,19 +1,50 @@
 #include "menu.h"
 
-const int HOTKEYID = 1999;
+//const int ID_HOTKEY_MENU_TOGGLE = 2000;
+//const int ID_HOTKEY_EXIT = 2001;
 
 // Globals
-using Present_t = HRESULT(__stdcall*)(IDXGISwapChain* p_SwapChain, UINT SyncInterval, UINT Flags);
+
+// Hooking pointer globals
+WNDPROC OriginalWndProc = nullptr;
+
+using Present_t = HRESULT(__stdcall*)(IDXGISwapChain* p_This, UINT SyncInterval, UINT Flags);
 Present_t OriginalPresent = nullptr;
-void* PresentPtr = nullptr;
-void* ExecuteCommandListsPtr = nullptr;
+void* Present_Func = nullptr;
+
+using ResizeBuffer_t = HRESULT (STDMETHODCALLTYPE*)(IDXGISwapChain* p_This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
+ResizeBuffer_t OriginalResizeBuffer = nullptr;
+void* ResizeBuffers_Func = nullptr;
 
 using ExecuteCommandLists_t = void(__stdcall*)(ID3D12CommandQueue*,UINT, ID3D12CommandList* const);
 ExecuteCommandLists_t OrginalExecuteCommandLists = nullptr;
+void* ExecuteCommandLists_Func = nullptr;
+
+using GetDeviceState_t = HRESULT(__stdcall*)(IDirectInputDevice8*, DWORD, LPVOID);
+GetDeviceState_t OriginalGetDeviceState = nullptr;
+void* GetDeviceState_Func = nullptr;
+
+// Unused at the moment
+using GetDeviceData_t = HRESULT(__stdcall*)(IDirectInputDevice8*, DWORD, LPDIDEVICEOBJECTDATA, LPDWORD, DWORD);
+GetDeviceData_t OriginalGetDeviceData = nullptr;
+void* GetDeviceData_Func = nullptr;
+
+using XInputGetState_t = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
+XInputGetState_t OriginalXInputGetState = nullptr;
+void* XInputGetState_Func = nullptr;
+
+using GetRawInputData_t = UINT(WINAPI*)(HRAWINPUT, UINT, LPVOID, PUINT, UINT);
+GetRawInputData_t OriginalGetRawInputData = nullptr;
+void* GetRawInputData_Func = nullptr;
+
+using SetCursorPos_t = BOOL(WINAPI*)(int, int);
+SetCursorPos_t OriginalSetCursorPos = nullptr;
+void* SetCursorPos_Func;
 
 FrameContext* g_FrameContext = nullptr;
 UINT g_BufferCount = 0;
 
+// Imgui needed globals
 HWND g_Hwnd = nullptr;
 ID3D12Device* g_Device = nullptr;
 ID3D12DescriptorHeap* g_RTVHeap = nullptr;
@@ -21,11 +52,17 @@ ID3D12DescriptorHeap* g_SrvHeap = nullptr;
 ID3D12CommandQueue* g_CommandQueue = nullptr;
 ID3D12GraphicsCommandList* g_CmdList = nullptr;
 
+// Menu globals
 bool g_Initialized = false;
+bool g_WndProcHooked = false;
+bool g_MenuActive = false;
+
+// Callee DLL Main loop bool
 bool* g_Running = nullptr;
+// Globals END
 
-WNDPROC OriginalWndProc = 0;
-
+// Foreward Declarations:
+void UninitializeImGui();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -35,12 +72,21 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 
     switch (msg)
     {
-    case WM_HOTKEY:
-        if (wParam != HOTKEYID)
-            break;
+    case WM_SYSKEYDOWN:
+        if (wParam == VK_NUMPAD1 && (GetAsyncKeyState(VK_MENU) < 0))
+        {
+            g_MenuActive = !g_MenuActive;
+            ImGuiIO& io = ImGui::GetIO();
+            io.MouseDrawCursor = g_MenuActive;
+            return 0;
+        }
 
-        if (g_Running != nullptr)
-            *g_Running = false;
+        if (wParam == VK_END && (GetAsyncKeyState(VK_MENU) < 0))
+        {
+            if (g_Running != nullptr)
+                *g_Running = false;
+            return 0;
+        }
         break;
     }
 
@@ -54,8 +100,14 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
     if (!g_Initialized)
     {
-        if (FAILED(pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3))))
-            return OriginalPresent(pSwapChain, SyncInterval, Flags);
+        ImGui::CreateContext();
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        ImGui_ImplWin32_EnableDpiAwareness();
 
         DXGI_SWAP_CHAIN_DESC desc;
         pSwapChain->GetDesc(&desc);
@@ -75,19 +127,12 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
         // Create a temporary allocator for command list creation
         ID3D12CommandAllocator* tempAllocator = nullptr;
-        g_Device->CreateCommandAllocator(
-            D3D12_COMMAND_LIST_TYPE_DIRECT,
-            IID_PPV_ARGS(&tempAllocator)
-        );
+        if (FAILED(g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&tempAllocator))))
+            return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
         // Create command list
-        g_Device->CreateCommandList(
-            0,
-            D3D12_COMMAND_LIST_TYPE_DIRECT,
-            tempAllocator,
-            nullptr,
-            IID_PPV_ARGS(&g_CmdList)
-        );
+        if (FAILED(g_Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,tempAllocator, nullptr, IID_PPV_ARGS(&g_CmdList))))
+            return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
         g_CmdList->Close();
 
@@ -129,36 +174,36 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
             rtvHandle.ptr += rtvSize;
         }
 
-        // ImGui init
-        ImGui::CreateContext();
         ImGui_ImplWin32_Init(g_Hwnd);
 
-        ImGui_ImplDX12_Init(
-            g_Device,
-            g_BufferCount,
-            DXGI_FORMAT_R8G8B8A8_UNORM,
-            g_SrvHeap,
-            g_SrvHeap->GetCPUDescriptorHandleForHeapStart(),
-            g_SrvHeap->GetGPUDescriptorHandleForHeapStart()
-        );
+        ImGui_ImplDX12_InitInfo initInfo = ImGui_ImplDX12_InitInfo();
+        initInfo.CommandQueue = g_CommandQueue;
+        initInfo.Device = g_Device;
+        initInfo.DSVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+        initInfo.LegacySingleSrvCpuDescriptor = g_SrvHeap->GetCPUDescriptorHandleForHeapStart();
+        initInfo.LegacySingleSrvGpuDescriptor = g_SrvHeap->GetGPUDescriptorHandleForHeapStart();
+        initInfo.NumFramesInFlight = g_BufferCount;
+        initInfo.SrvDescriptorHeap = g_SrvHeap;
+        ImGui_ImplDX12_Init(&initInfo);
 
-        OriginalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookWndProc)));
-        if (FALSE == RegisterHotKey(g_Hwnd, HOTKEYID, MOD_ALT, VK_NUMPAD1)) {
-            logger::println("HotKey not registered :/");
+        if (!g_WndProcHooked)
+        {
+            OriginalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookWndProc)));
+            g_WndProcHooked = true;
         }
+        
+        ImGui_ImplDX12_CreateDeviceObjects();
 
         g_Initialized = true;
     }
 
-    ImGuiIO& io = ImGui::GetIO();
-    if (!io.Fonts->IsBuilt())
-        io.Fonts->Build();
+    if (!g_MenuActive)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
     if (!g_CommandQueue)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-    if (!swapchain3)
-        pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
+    pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
 
     UINT frameIndex = swapchain3->GetCurrentBackBufferIndex();
     FrameContext& frame = g_FrameContext[frameIndex];
@@ -209,15 +254,133 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     return OriginalPresent(pSwapChain, SyncInterval, Flags);
 }
 
-void Hook_ExecuteCommandLists(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* ppCommandLists) {
+static HRESULT STDMETHODCALLTYPE Hook_ResizeBuffer(IDXGISwapChain* p_This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+{
+    UninitializeImGui();
+
+    return OriginalResizeBuffer(p_This, BufferCount, Width, Height, NewFormat,SwapChainFlags);
+}
+
+
+static void Hook_ExecuteCommandLists(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* ppCommandLists) {
+    // Receive the CommandQueue Pointer once
     if (!g_CommandQueue)
         g_CommandQueue = queue;
 
     OrginalExecuteCommandLists(queue, NumCommandLists, ppCommandLists);
 }
 
-static bool InitDXGIPointers()
+// Mouse Input
+static HRESULT __stdcall Hook_GetDeviceState(IDirectInputDevice8* a_pThis, DWORD cbData, LPVOID lpvData)
 {
+    HRESULT result = OriginalGetDeviceState(a_pThis, cbData, lpvData);
+
+    if (!g_MenuActive)
+        return result;
+
+    // Keyboard input probably
+    if (cbData == 256)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            ((BYTE*)lpvData)[i] = 0x00; // reset keyboard state!
+        }
+    }
+
+    // We probably have DIMOUSESTATE information here
+    if (cbData == sizeof(DIMOUSESTATE))
+    {
+        ((LPDIMOUSESTATE)lpvData)->lX = 0;
+        ((LPDIMOUSESTATE)lpvData)->lZ = 0;
+        ((LPDIMOUSESTATE)lpvData)->lY = 0;
+        ((LPDIMOUSESTATE)lpvData)->rgbButtons[0] = 0;
+        ((LPDIMOUSESTATE)lpvData)->rgbButtons[1] = 0;
+    }
+
+    // We probably have DIMOUSESTATE2 information here
+    if (cbData == sizeof(DIMOUSESTATE2))
+    {
+        ((LPDIMOUSESTATE2)lpvData)->lX = 0;
+        ((LPDIMOUSESTATE2)lpvData)->lZ = 0;
+        ((LPDIMOUSESTATE2)lpvData)->lY = 0;
+        ((LPDIMOUSESTATE2)lpvData)->rgbButtons[0] = 0;
+        ((LPDIMOUSESTATE2)lpvData)->rgbButtons[1] = 0;
+    }
+
+    return result;
+}
+
+static HRESULT __stdcall Hook_GetDeviceData(IDirectInputDevice8* a_This, DWORD cbObjectData, LPDIDEVICEOBJECTDATA rgdod, LPDWORD pdwInOut, DWORD dwFlags)
+{
+    HRESULT result = OriginalGetDeviceData(a_This, cbObjectData, rgdod, pdwInOut, dwFlags);
+
+    if (g_MenuActive)
+        *pdwInOut = 0;
+
+    return result;
+}
+
+// Controller Input
+static DWORD WINAPI Hook_XInputGetState(DWORD dwUserIndex, XINPUT_STATE* pState)
+{
+    auto result = OriginalXInputGetState(dwUserIndex, pState);
+    if (g_MenuActive)
+    {
+        pState->Gamepad.bLeftTrigger = 0;
+        pState->Gamepad.bRightTrigger = 0;
+        pState->Gamepad.sThumbLX = 0;
+        pState->Gamepad.sThumbLY = 0;
+        pState->Gamepad.sThumbRX = 0;
+        pState->Gamepad.sThumbRY = 0;
+        pState->Gamepad.wButtons = 0;
+    }
+
+    return result;
+}
+
+// Keyboard Inputs
+static UINT WINAPI Hook_GetRawInputData(HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader)
+{
+    UINT result = OriginalGetRawInputData(
+        hRawInput, uiCommand, pData, pcbSize, cbSizeHeader
+    );
+
+    if (!g_MenuActive)
+        return result;
+
+    RAWINPUT* raw = (RAWINPUT*)pData;
+    if (uiCommand == RID_INPUT && pData)
+    {
+        if (raw->header.dwType == RIM_TYPEMOUSE)
+        {
+            raw->data.mouse.lLastX = 0;
+            raw->data.mouse.lLastY = 0;
+        }
+
+        if (raw->header.dwType == RIM_TYPEKEYBOARD)
+        {
+            raw->data.keyboard.VKey = 0;
+            raw->data.keyboard.Flags = RI_KEY_BREAK; // mark as released
+        }
+    }
+
+    return result;
+}
+
+// Free Mouse Movement
+BOOL WINAPI Hook_SetCursorPos(int X, int Y)
+{
+    if (g_MenuActive)
+    {
+        return TRUE;
+    }
+
+    return OriginalSetCursorPos(X, Y);
+}
+
+static bool InitGameMenuPointers(HMODULE a_Module)
+{
+    // DXGI d3d12 pointers
     // Create dummy window
     HWND hwnd = CreateWindowA("STATIC", "dummy", WS_OVERLAPPEDWINDOW,
         0, 0, 100, 100,
@@ -225,19 +388,31 @@ static bool InitDXGIPointers()
 
     IDXGIFactory4* factory = nullptr;
     if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
+    {
+        DestroyWindow(hwnd);
         return false;
+    }
 
     ID3D12Device* device = nullptr;
     if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0,
         IID_PPV_ARGS(&device))))
+    {
+        factory->Release();
+        DestroyWindow(hwnd);
         return false;
+    }
 
     D3D12_COMMAND_QUEUE_DESC qdesc = {};
     qdesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
     ID3D12CommandQueue* queue = nullptr;
     if (FAILED(device->CreateCommandQueue(&qdesc, IID_PPV_ARGS(&queue))))
+    {
+        device->Release();
+        factory->Release();
+        DestroyWindow(hwnd);
         return false;
+    }
 
     DXGI_SWAP_CHAIN_DESC scdesc = {};
     scdesc.BufferCount = 2;
@@ -250,15 +425,26 @@ static bool InitDXGIPointers()
 
     IDXGISwapChain* swapchain = nullptr;
     if (FAILED(factory->CreateSwapChain(queue, &scdesc, &swapchain)))
+    {
+        queue->Release();
+        device->Release();
+        factory->Release();
+        DestroyWindow(hwnd);
         return false;
+    }
+      
+    {
+        void** vtable = *reinterpret_cast<void***>(swapchain);
+        Present_Func = vtable[8];
+        ResizeBuffers_Func = vtable[13];
+    }
 
-    void** vtable = *reinterpret_cast<void***>(swapchain);
-    PresentPtr = vtable[8];
+    {
+        void** vtable = *reinterpret_cast<void***>(queue);
+        ExecuteCommandLists_Func = vtable[10];
+    }
 
-    void** queueVtable = *reinterpret_cast<void***>(queue);
-    ExecuteCommandListsPtr = queueVtable[10];
-
-
+    
     // Cleanup
     swapchain->Release();
     queue->Release();
@@ -266,63 +452,240 @@ static bool InitDXGIPointers()
     factory->Release();
     DestroyWindow(hwnd);
 
-    return true;
-}
 
-bool InitMenu(bool* a_pRunningParam)
-{
-    g_Running = a_pRunningParam;
-
-    if (!InitDXGIPointers())
-        return false;
-
-    Present_t present = reinterpret_cast<Present_t>(PresentPtr);
-    if (!present)
+    // DInput pointers
+    IDirectInput8* pDirectInput;
+    if (DirectInput8Create(a_Module, DIRECTINPUT_VERSION, IID_IDirectInput8, reinterpret_cast<LPVOID*>(&pDirectInput), NULL) != DI_OK)
     {
-        logger::println("Getting Present vtable function failed!");
+        logger::println("Could not create DirectInput8");
         return false;
     }
 
-    ExecuteCommandLists_t executeCommandLists = reinterpret_cast<ExecuteCommandLists_t>(ExecuteCommandListsPtr);
+    IDirectInputDevice8* pDIMouse;
+    if (pDirectInput->CreateDevice(GUID_SysMouse, &pDIMouse, NULL) != DI_OK)
+    {
+        pDirectInput->Release();
+        logger::println("Could not create DirectInput8 Mouse Device");
+        return false;
+    }
 
+    {
+        void** vtable = *reinterpret_cast<void***>(pDIMouse);
+        GetDeviceState_Func = vtable[9];
+        GetDeviceData_Func = vtable[10];
+    }
+
+    // Cleanup
+    pDIMouse->Release();
+    pDirectInput->Release(); 
+
+
+    // XInput Pointers
+    HMODULE xinput1_4Handle = GetModuleHandleA("xinput1_4.dll");
+    if (xinput1_4Handle == NULL)
+    {
+        logger::println("No xinput1_4.dll imported");
+        return false;
+    }
+
+    XInputGetState_Func = GetProcAddress(xinput1_4Handle, "XInputGetState");
+    if (!XInputGetState_Func)
+    {
+        logger::println("XInputGetState not found");
+        return false;
+    }
+
+
+    HMODULE user32Handle = GetModuleHandleA("user32.dll");
+    if (user32Handle == NULL)
+    {
+        logger::println("user32 Handle not found");
+        return false;
+    }
+    GetRawInputData_Func = GetProcAddress(user32Handle, "GetRawInputData");
+    if (!GetRawInputData_Func)
+    {
+        logger::println("GetRawInputData not found");
+        return false;
+    }
+
+
+    SetCursorPos_Func = GetProcAddress(GetModuleHandleA("user32.dll"), "SetCursorPos");
+    if (!SetCursorPos_Func)
+    {
+        logger::println("GetRawInputData not found");
+        return false;
+    }
+
+    return true;
+}
+
+static bool StartHooking()
+{
     if (MH_Initialize() != MH_OK)
     {
         logger::println("MH: Init failed");
         return false;
     }
 
-    if (MH_CreateHook(present, &Hook_Present, (LPVOID*)&OriginalPresent) != MH_OK)
+    //Present_t present = reinterpret_cast<Present_t>(Present_Func);
+    if (!Present_Func)
     {
-        logger::println("MH: Creating Hook Present failed");
+        logger::println("Getting Present vtable function failed!");
         return false;
     }
 
-    if (MH_CreateHook(executeCommandLists, &Hook_ExecuteCommandLists, (LPVOID*)&OrginalExecuteCommandLists) != MH_OK)
+    if (MH_CreateHook(Present_Func, &Hook_Present, (LPVOID*)&OriginalPresent) != MH_OK)
     {
-        logger::println("MH: Creating Hook OrginalExecuteCommandLists failed");
+        logger::println("MH: Hook Present failed");
         return false;
     }
 
-    if (MH_EnableHook(present) != MH_OK)
+    if (!ResizeBuffers_Func)
     {
-        logger::println("MH: Enable Hooking failed");
+        logger::println("Getting ResizeBuffers vtable function failed!");
         return false;
     }
 
-    if (MH_EnableHook(executeCommandLists) != MH_OK)
+    if (MH_CreateHook(ResizeBuffers_Func, &Hook_ResizeBuffer, (LPVOID*)&OriginalResizeBuffer) != MH_OK)
     {
-        logger::println("MH: Enable executeCommandLists Hooking failed");
+        logger::println("MH: Hook ResizeBuffers failed");
         return false;
     }
 
-    logger::println("Found Present Function: %p", PresentPtr);
-    logger::println("Found ExecuteCommandLists Function: %p", ExecuteCommandListsPtr);
+    //ExecuteCommandLists_t executeCommandLists = reinterpret_cast<ExecuteCommandLists_t>(ExecuteCommandLists_Func);
+    if (!ExecuteCommandLists_Func)
+    {
+        logger::println("Getting ExecuteCommandLists vtable function failed!");
+        return false;
+    }
+
+    if (MH_CreateHook(ExecuteCommandLists_Func, &Hook_ExecuteCommandLists, (LPVOID*)&OrginalExecuteCommandLists) != MH_OK)
+    {
+        logger::println("MH: Hook ExecuteCommandLists failed");
+        return false;
+    }
+
+    //GetDeviceData_t getDeviceData = reinterpret_cast<GetDeviceData_t>(GetDeviceDataPtr);
+    if (!GetDeviceData_Func)
+    {
+        logger::println("Getting GetDeviceData vtable function failed!");
+        return false;
+    }
+
+    if (MH_CreateHook(GetDeviceData_Func, &Hook_GetDeviceData, (LPVOID*)&OriginalGetDeviceData) != MH_OK)
+    {
+        logger::println("MH: Hook GetDeviceData failed");
+        return false;
+    }
+
+    //GetDeviceState_t getDeviceState = reinterpret_cast<GetDeviceState_t>(GetDeviceState_Func);
+    if (!GetDeviceState_Func)
+    {
+        logger::println("Getting GetDeviceState vtable function failed!");
+        return false;
+    }
+
+    if (MH_CreateHook(GetDeviceState_Func, &Hook_GetDeviceState, (LPVOID*)&OriginalGetDeviceState) != MH_OK)
+    {
+        logger::println("MH: Hook GetDeviceState failed");
+        return false;
+    }
+
+        
+    //XInputGetState_t xInputGetState = reinterpret_cast<XInputGetState_t>(XInputGetState_Func);
+    if (!XInputGetState_Func)
+    {
+        logger::println("Getting XInputGetState function failed!");
+        return false;
+    }
+    if (MH_CreateHook(XInputGetState_Func, &Hook_XInputGetState, (LPVOID*)&OriginalXInputGetState) != MH_OK)
+    {
+        logger::println("MH: Hook XInputGetState failed");
+        return false;
+    }
+
+    //GetRawInputData_t getRawInputData = reinterpret_cast<GetRawInputData_t>(GetRawInputData_Func);
+    if (!GetRawInputData_Func)
+    {
+        logger::println("Getting GetRawInputData function failed!");
+        return false;
+    }
+    if (MH_CreateHook(GetRawInputData_Func, &Hook_GetRawInputData, (LPVOID*)&OriginalGetRawInputData) != MH_OK)
+    {
+        logger::println("MH: Hook GetRawInputData failed");
+        return false;
+    }
+
+    if (!SetCursorPos_Func)
+    {
+        logger::println("Getting SetCursorPos function failed!");
+        return false;
+    }
+    MH_CreateHook(SetCursorPos_Func,&Hook_SetCursorPos,(LPVOID*)&OriginalSetCursorPos);
+
+    if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
+    {
+        logger::println("MH: Enabling Hooks failed!");
+        return false;
+    }
+
     return true;
+}
+
+bool InitMenu(HMODULE a_Module, bool* a_pRunningParam)
+{
+    g_Running = a_pRunningParam;
+
+    if (!InitGameMenuPointers(a_Module))
+        return false;
+
+    if (!StartHooking())
+        return false;
+
+    return true;
+}
+
+void UninitializeImGui()
+{
+    if (g_Initialized)
+    {
+        ImGui_ImplDX12_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+
+        for (UINT i = 0; i < g_BufferCount; i++)
+        {
+            if (g_FrameContext[i].RenderTarget)
+            {
+                g_FrameContext[i].RenderTarget->Release();
+                g_FrameContext[i].RenderTarget = nullptr;
+            }
+        }
+
+        if (g_RTVHeap)
+        {
+            g_RTVHeap->Release();
+            g_RTVHeap = nullptr;
+        }
+
+        delete[] g_FrameContext;
+        g_FrameContext = nullptr;
+
+        g_CmdList->Release();
+        g_CmdList = nullptr;
+
+        g_SrvHeap->Release();
+        g_SrvHeap = nullptr;
+
+        g_Initialized = false; // force re-init
+    }
 }
 
 bool CleanUpMenu()
 {
     SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(OriginalWndProc));
+
+    UninitializeImGui();
 
     if (MH_DisableHook(MH_ALL_HOOKS) != MH_OK)
         return false;
