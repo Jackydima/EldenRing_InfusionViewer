@@ -3,6 +3,8 @@
 //const int ID_HOTKEY_MENU_TOGGLE = 2000;
 //const int ID_HOTKEY_EXIT = 2001;
 
+//ImVec4 clear_color = ImVec4(0.05f, 0.55f, 0.60f, 0.01f);
+
 // Globals
 
 // Hooking pointer globals
@@ -12,11 +14,11 @@ using Present_t = HRESULT(__stdcall*)(IDXGISwapChain* p_This, UINT SyncInterval,
 Present_t OriginalPresent = nullptr;
 void* Present_Func = nullptr;
 
-using ResizeBuffer_t = HRESULT (STDMETHODCALLTYPE*)(IDXGISwapChain* p_This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
+using ResizeBuffer_t = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain* p_This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
 ResizeBuffer_t OriginalResizeBuffer = nullptr;
 void* ResizeBuffers_Func = nullptr;
 
-using ExecuteCommandLists_t = void(__stdcall*)(ID3D12CommandQueue*,UINT, ID3D12CommandList* const);
+using ExecuteCommandLists_t = void(__stdcall*)(ID3D12CommandQueue*, UINT, ID3D12CommandList* const);
 ExecuteCommandLists_t OrginalExecuteCommandLists = nullptr;
 void* ExecuteCommandLists_Func = nullptr;
 
@@ -96,10 +98,10 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 // x64 this call has rcx for std call in the first parameter!
 static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
 {
-    IDXGISwapChain3* swapchain3 = nullptr;
-
     if (!g_Initialized)
     {
+        ImGui_ImplWin32_EnableDpiAwareness();
+        float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
         ImGui::CreateContext();
 
         ImGuiIO& io = ImGui::GetIO();
@@ -107,7 +109,10 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-        ImGui_ImplWin32_EnableDpiAwareness();
+        // Setup scaling
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(main_scale);
+        style.FontScaleDpi = main_scale;
 
         DXGI_SWAP_CHAIN_DESC desc;
         pSwapChain->GetDesc(&desc);
@@ -115,7 +120,6 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
         g_BufferCount = desc.BufferCount;
 
-        // Device
         if (FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&g_Device))))
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
@@ -127,16 +131,18 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
         // Create a temporary allocator for command list creation
         ID3D12CommandAllocator* tempAllocator = nullptr;
-        if (FAILED(g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&tempAllocator))))
+        if (FAILED(g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&tempAllocator))))
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-        // Create command list
-        if (FAILED(g_Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,tempAllocator, nullptr, IID_PPV_ARGS(&g_CmdList))))
+        if (FAILED(g_Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, tempAllocator, nullptr, IID_PPV_ARGS(&g_CmdList))))
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-        g_CmdList->Close();
+        tempAllocator->Release();
+        tempAllocator = nullptr;
 
-        // RTV heap
+        if (FAILED(g_CmdList->Close()))
+            return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
         D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
         rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         rtvDesc.NumDescriptors = g_BufferCount;
@@ -191,7 +197,7 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
             OriginalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookWndProc)));
             g_WndProcHooked = true;
         }
-        
+
         ImGui_ImplDX12_CreateDeviceObjects();
 
         g_Initialized = true;
@@ -203,6 +209,16 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     if (!g_CommandQueue)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
+    // ImGui frame
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
+
+    ImGui::Render();
+
+    IDXGISwapChain3* swapchain3 = nullptr;
     pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
 
     UINT frameIndex = swapchain3->GetCurrentBackBufferIndex();
@@ -219,20 +235,13 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
     g_CmdList->ResourceBarrier(1, &barrier);
 
+    // Render Dear ImGui graphics
+    //const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+    //g_CmdList->ClearRenderTargetView(frame.RTV, clear_color_with_alpha, 0, nullptr);
     // Set render target
     g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
-
-    // ImGui frame
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::ShowDemoWindow();
-
-    ImGui::Render();
 
     // Bind heap
     ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
@@ -242,7 +251,8 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
 
     // Transition back
-    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     g_CmdList->ResourceBarrier(1, &barrier);
 
     // Execute
@@ -260,7 +270,6 @@ static HRESULT STDMETHODCALLTYPE Hook_ResizeBuffer(IDXGISwapChain* p_This, UINT 
 
     return OriginalResizeBuffer(p_This, BufferCount, Width, Height, NewFormat,SwapChainFlags);
 }
-
 
 static void Hook_ExecuteCommandLists(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* ppCommandLists) {
     // Receive the CommandQueue Pointer once
@@ -432,7 +441,7 @@ static bool InitGameMenuPointers(HMODULE a_Module)
         DestroyWindow(hwnd);
         return false;
     }
-      
+
     {
         void** vtable = *reinterpret_cast<void***>(swapchain);
         Present_Func = vtable[8];
@@ -444,7 +453,7 @@ static bool InitGameMenuPointers(HMODULE a_Module)
         ExecuteCommandLists_Func = vtable[10];
     }
 
-    
+
     // Cleanup
     swapchain->Release();
     queue->Release();
@@ -477,7 +486,7 @@ static bool InitGameMenuPointers(HMODULE a_Module)
 
     // Cleanup
     pDIMouse->Release();
-    pDirectInput->Release(); 
+    pDirectInput->Release();
 
 
     // XInput Pointers
@@ -510,7 +519,7 @@ static bool InitGameMenuPointers(HMODULE a_Module)
     }
 
 
-    SetCursorPos_Func = GetProcAddress(GetModuleHandleA("user32.dll"), "SetCursorPos");
+    SetCursorPos_Func = GetProcAddress(user32Handle, "SetCursorPos");
     if (!SetCursorPos_Func)
     {
         logger::println("GetRawInputData not found");
@@ -592,7 +601,7 @@ static bool StartHooking()
         return false;
     }
 
-        
+
     //XInputGetState_t xInputGetState = reinterpret_cast<XInputGetState_t>(XInputGetState_Func);
     if (!XInputGetState_Func)
     {
@@ -622,7 +631,7 @@ static bool StartHooking()
         logger::println("Getting SetCursorPos function failed!");
         return false;
     }
-    MH_CreateHook(SetCursorPos_Func,&Hook_SetCursorPos,(LPVOID*)&OriginalSetCursorPos);
+    MH_CreateHook(SetCursorPos_Func, &Hook_SetCursorPos, (LPVOID*)&OriginalSetCursorPos);
 
     if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
@@ -650,8 +659,10 @@ void UninitializeImGui()
 {
     if (g_Initialized)
     {
+        ImGui_ImplDX12_InvalidateDeviceObjects();
         ImGui_ImplDX12_Shutdown();
         ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
 
         for (UINT i = 0; i < g_BufferCount; i++)
         {
@@ -659,6 +670,11 @@ void UninitializeImGui()
             {
                 g_FrameContext[i].RenderTarget->Release();
                 g_FrameContext[i].RenderTarget = nullptr;
+            }
+            if (g_FrameContext[i].CommandAllocator) 
+            {
+                g_FrameContext[i].CommandAllocator->Release();
+                g_FrameContext[i].CommandAllocator = nullptr;
             }
         }
 
@@ -671,11 +687,17 @@ void UninitializeImGui()
         delete[] g_FrameContext;
         g_FrameContext = nullptr;
 
-        g_CmdList->Release();
-        g_CmdList = nullptr;
+        if (g_CmdList)
+        {
+            g_CmdList->Release();
+            g_CmdList = nullptr;
+        }
 
-        g_SrvHeap->Release();
-        g_SrvHeap = nullptr;
+        if (g_SrvHeap)
+        {
+            g_SrvHeap->Release();
+            g_SrvHeap = nullptr;
+        }
 
         g_Initialized = false; // force re-init
     }
@@ -683,12 +705,12 @@ void UninitializeImGui()
 
 bool CleanUpMenu()
 {
+    if (MH_DisableHook(MH_ALL_HOOKS) != MH_OK)
+        return false;
+
     SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(OriginalWndProc));
 
     UninitializeImGui();
-
-    if (MH_DisableHook(MH_ALL_HOOKS) != MH_OK)
-        return false;
 
     return MH_Uninitialize() == MH_OK;
 }
