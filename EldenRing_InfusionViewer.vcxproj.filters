@@ -57,6 +57,12 @@
     <ClCompile Include="thirdparty\imgui\imgui_widgets.cpp">
       <Filter>Quelldateien\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="src\shared\config.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shared\scripts\script.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\tools\debug_print.h">
@@ -78,6 +84,12 @@
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="src\shared\params\effect\spEffectParam.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\config.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\scripts\scripts.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>

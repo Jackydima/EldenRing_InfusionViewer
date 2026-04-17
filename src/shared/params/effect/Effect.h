@@ -376,6 +376,13 @@ struct EffectData {
 	float guardStaminaMult;
 	int32_t spiritDeathSpEffectId;
 };
+
+struct VFXResource
+{
+	uint64_t vfxID;
+	uintptr_t pointer;
+	bool success : 1;
+};
 #pragma pack(pop)
 static_assert(sizeof(EffectData) == 0x390, "Size mismatch!");
 

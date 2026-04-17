@@ -22,7 +22,13 @@ namespace bases
 	using RemoveEffect_t = int64_t(*__stdcall)(uintptr_t* a_SpecialEffect, int32_t a_EffectID);
 	extern RemoveEffect_t RemoveEffect;
 
-	namespace playerEquipmentOffset
+	using CallVfx_f = void(*__stdcall)(uintptr_t* a_pCSChrVfxModule, int64_t vfxId, uintptr_t* a_pSPEffectObject);
+	extern CallVfx_f CallVfx;
+
+	using PrepareVfxResource_f = void(*__stdcall)(VFXResource* a_pVfxResource, int64_t a_VfxId, EffectData* a_pEffect );
+	extern PrepareVfxResource_f PrepareVfxResource;
+
+	namespace playerGameDataOffset
 	{
 		extern const std::vector<intptr_t> primRightWep;
 		extern const std::vector<intptr_t> primLeftWep;
@@ -46,5 +52,13 @@ namespace bases
 		extern const std::vector<intptr_t> netPlayer3;
 		extern const std::vector<intptr_t> netPlayer4;
 		extern const std::vector<intptr_t> netPlayer5;
+	}
+
+	namespace playerOffsets
+	{
+		extern const std::vector<intptr_t> debugPhantomColor;
+		extern const std::vector<intptr_t> moduleListPtr;
+		extern const std::vector<intptr_t> moduleChrVfxModule;
+		extern const std::vector<intptr_t> moduleChrSfxModule;
 	}
 }

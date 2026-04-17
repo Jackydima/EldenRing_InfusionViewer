@@ -14,8 +14,10 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\menu\menu.cpp" />
     <ClCompile Include="src\shared\bases\bases.cpp" />
+    <ClCompile Include="src\shared\config.cpp" />
     <ClCompile Include="src\shared\params\effect\spEffectParam.cpp" />
     <ClCompile Include="src\shared\params\params.cpp" />
+    <ClCompile Include="src\shared\scripts\script.cpp" />
     <ClCompile Include="src\tools\memory.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_demo.cpp" />
@@ -28,9 +30,11 @@
   <ItemGroup>
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\shared\bases\bases.h" />
+    <ClInclude Include="src\shared\config.h" />
     <ClInclude Include="src\shared\params\effect\Effect.h" />
     <ClInclude Include="src\shared\params\effect\spEffectParam.h" />
     <ClInclude Include="src\shared\params\params.h" />
+    <ClInclude Include="src\shared\scripts\scripts.h" />
     <ClInclude Include="src\tools\debug_print.h" />
     <ClInclude Include="src\tools\memory.h" />
   </ItemGroup>

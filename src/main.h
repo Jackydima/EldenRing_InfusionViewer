@@ -8,4 +8,6 @@
 #include "tools/debug_print.h"
 #include "shared/bases/bases.h"
 #include "menu/menu.h"
+#include "shared/config.h"
+#include "shared/scripts/scripts.h"
 

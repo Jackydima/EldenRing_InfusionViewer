@@ -23,6 +23,8 @@
 #pragma comment(lib, "Xinput.lib")
 
 #include "../tools/debug_print.h"
+#include "../shared/config.h"
+#include "../shared/scripts/scripts.h"
 
 
 struct FrameContext {
@@ -31,5 +33,5 @@ struct FrameContext {
     D3D12_CPU_DESCRIPTOR_HANDLE RTV;
 };
 
-bool InitMenu(HMODULE a_Module, bool* a_RunningParam);
+bool InitMenu(HMODULE a_Module, bool* a_RunningParam, int a_Delay);
 bool CleanUpMenu();

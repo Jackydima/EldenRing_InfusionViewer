@@ -60,18 +60,22 @@ bool g_WndProcHooked = false;
 bool g_MenuActive = false;
 
 // Callee DLL Main loop bool
-bool* g_Running = nullptr;
+bool* g_pRunning = nullptr;
 // Globals END
 
 // Foreward Declarations:
+static void RenderMenu();
 void UninitializeImGui();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-        return true;
-
+    if (g_MenuActive)
+    {
+        if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+            return true;
+    }
+    
     switch (msg)
     {
     case WM_SYSKEYDOWN:
@@ -85,8 +89,8 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 
         if (wParam == VK_END && (GetAsyncKeyState(VK_MENU) < 0))
         {
-            if (g_Running != nullptr)
-                *g_Running = false;
+            if (g_pRunning != nullptr)
+                *g_pRunning = false;
             return 0;
         }
         break;
@@ -95,11 +99,84 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
     return CallWindowProcW(OriginalWndProc, hWnd, msg, wParam, lParam);
 }
 
+static void RenderMenu()
+{
+    // Background specific things
+    static ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowBgAlpha(0.6f);
+
+    ImGui::Begin("OverlayBG_Window", nullptr, flags);
+    ImGui::End();
+
+    // Mod Page Render Objects
+    // ImGui::ShowDemoWindow();
+    ImGui::SetNextWindowSize(ImVec2(550, 680), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Main Menu @Jackydima");
+
+    if (ImGui::BeginTabBar("Menu Sections"))
+    {
+        if (ImGui::BeginTabItem("Visual Configuraions"))
+        {
+            //ImGui::Checkbox("Infusion Viewing Enabled", &config::InfusionViewerActive);
+
+            ImGui::SeparatorText("Info");
+            ImGui::Text("To open or close the Menu use the Keys 'ALT + Num1'");
+            ImGui::Text("To Deactive and Unload this Mod press 'ALT + End'");
+
+            ImGui::SeparatorText("Infusion Viewer:");
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+            if (ImGui::Checkbox("Infusion Viewer Active", &config::InfusionViewerActive))
+            {
+                if (!config::InfusionViewerActive)
+                {
+                    RemoveEffectForPlayers();
+                }
+            }
+            ImGui::PopStyleVar();
+
+            ImGui::SeparatorText("Debug Phantom Color:");
+            ImGui::DragInt("SelfPhantomId", &config::PhantomSelfId, 1.0f, -1, 1000);
+
+            ImGui::DragInt("Net1 PhantomId", &config::NetPlayer1Id, 1.0f, -1, 1000);
+
+            ImGui::DragInt("Net2 PhantomId", &config::NetPlayer2Id, 1.0f, -1, 1000);
+
+            ImGui::DragInt("Net3 PhantomId", &config::NetPlayer3Id, 1.0f, -1, 1000);
+
+            ImGui::DragInt("Net4 PhantomId", &config::NetPlayer4Id, 1.0f, -1, 1000);
+
+            ImGui::DragInt("Net5 PhantomId", &config::NetPlayer5Id, 1.0f, -1, 1000);
+
+            if (ImGui::Checkbox("Debug Phantom Coloring", &config::PhantomColorActive))
+            {
+                if (!config::PhantomColorActive)
+                {
+                    DeactivatePhantomColor();
+                }
+            }
+
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+
+    //ImGui::ShowDemoWindow();
+
+    ImGui::Render();
+}
+
 // x64 this call has rcx for std call in the first parameter!
 static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
 {
     if (!g_Initialized)
     {
+        IMGUI_CHECKVERSION();
+
         ImGui_ImplWin32_EnableDpiAwareness();
         float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
         ImGui::CreateContext();
@@ -214,9 +291,7 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::ShowDemoWindow();
-
-    ImGui::Render();
+    RenderMenu();
 
     IDXGISwapChain3* swapchain3 = nullptr;
     pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
@@ -642,15 +717,23 @@ static bool StartHooking()
     return true;
 }
 
-bool InitMenu(HMODULE a_Module, bool* a_pRunningParam)
+bool InitMenu(HMODULE a_Module, bool* a_pRunningParam, int a_Delay)
 {
-    g_Running = a_pRunningParam;
+    g_pRunning = a_pRunningParam;
 
+    Sleep(a_Delay); // Wait for other GUI related stuff to load/hook - e.x. Steam Overlay!
+    
     if (!InitGameMenuPointers(a_Module))
         return false;
 
     if (!StartHooking())
         return false;
+
+    logger::println("Address of Present_Func: %p", Present_Func);
+    logger::println("Address of ResizeBuffers_Func: %p", ResizeBuffers_Func);
+    logger::println("Address of ExecuteCommandLists_Func: %p", ExecuteCommandLists_Func);
+    logger::println("Address of GetDeviceState_Func: %p", GetDeviceState_Func);
+    logger::println("Address of GetRawInputData_Func: %p", GetRawInputData_Func);
 
     return true;
 }

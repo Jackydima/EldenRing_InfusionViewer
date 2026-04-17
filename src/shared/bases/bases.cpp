@@ -2,7 +2,7 @@
 
 namespace bases
 {
-    namespace playerEquipmentOffset
+    namespace playerGameDataOffset
     {
         const std::vector<intptr_t> primRightWep = { 0x580, 0x39C };
         const std::vector<intptr_t> primLeftWep = { 0x580, 0x398 };
@@ -28,6 +28,14 @@ namespace bases
         const std::vector<intptr_t> netPlayer5 = { 0x10EF8, 5 * 0x10, 0 };
     }
 
+    namespace playerOffsets
+    {
+        const std::vector<intptr_t> debugPhantomColor = { 0x538 };
+        const std::vector<intptr_t> moduleListPtr = { 0x190 };
+        const std::vector<intptr_t> moduleChrVfxModule = { 0x190, 0xB8 };
+        const std::vector<intptr_t> moduleChrSfxModule = { 0x190, 0xB0 };
+    }
+
     // Foreward declarations
     static bool initCodeSegments();
     static uintptr_t getRIPAddress(uintptr_t base, size_t a_lInstrLen = 7ull, size_t a_lDataPtrOffset = 3ull);
@@ -39,10 +47,14 @@ namespace bases
 	uintptr_t GameDataMan = NULL;
 	uintptr_t WorldChrMan = NULL;
 	uintptr_t SoloParamRepository = NULL;
+
     SpEffectParam SpEffectParamInst;
 
     AddEffect_t AddEffect = nullptr;
     RemoveEffect_t RemoveEffect = nullptr;
+
+    CallVfx_f CallVfx = nullptr;
+    PrepareVfxResource_f PrepareVfxResource = nullptr;
 
 	bool initialize()
 	{
@@ -89,6 +101,16 @@ namespace bases
         RemoveEffect = reinterpret_cast<RemoveEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 83 EC 28 8B C2 48 8B 51 08 48 85 D2 ?? ?? 90", '?'));
         logger::println("Address of g_RemoveEffect: %p", reinterpret_cast<LPVOID>(RemoveEffect));
         if (RemoveEffect == 0)
+            return false;
+
+        CallVfx = reinterpret_cast<CallVfx_f>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "40 55 56 41 56 48 83 EC 70 33 C0 48 8B F1 83 CD FF", '?'));
+        logger::println("Address of CallVfx: %p", reinterpret_cast<LPVOID>(CallVfx));
+        if (CallVfx == 0)
+            return false;
+
+        PrepareVfxResource = reinterpret_cast<PrepareVfxResource_f>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "40 57 48 83 ec 40 48 c7 44 24 20 fe ff ff ff 48 89 5c 24 50 48 89 6c 24 58 48 89 74 24 60 8b fa 48 8b d9 33 ed 85 d2", '?'));
+        logger::println("Address of PrepareVfxResource: %p", PrepareVfxResource);
+        if (PrepareVfxResource == 0)
             return false;
 
         return true;
