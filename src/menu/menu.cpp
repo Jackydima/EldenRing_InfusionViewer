@@ -48,6 +48,7 @@ UINT g_BufferCount = 0;
 
 // Imgui needed globals
 HWND g_Hwnd = nullptr;
+IDXGISwapChain3* g_Swapchain3 = nullptr;
 ID3D12Device* g_Device = nullptr;
 ID3D12DescriptorHeap* g_RTVHeap = nullptr;
 ID3D12DescriptorHeap* g_SrvHeap = nullptr;
@@ -85,12 +86,6 @@ static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam)
 
 static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (g_MenuActive)
-    {
-        if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-            return true;
-    }
-    
     switch (msg)
     {
     case WM_SYSKEYDOWN:
@@ -109,6 +104,12 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             return 0;
         }
         break;
+    }
+
+    if (g_MenuActive)
+    {
+        if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+            return true;
     }
 
     return CallWindowProcW(OriginalWndProc, hWnd, msg, wParam, lParam);
@@ -263,7 +264,8 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
             if (g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&g_FrameContext[i].CommandAllocator)) != S_OK)
                 return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-            pSwapChain->GetBuffer(i, IID_PPV_ARGS(&g_FrameContext[i].RenderTarget));
+            if (pSwapChain->GetBuffer(i, IID_PPV_ARGS(&g_FrameContext[i].RenderTarget)) != S_OK)
+                return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
             g_Device->CreateRenderTargetView(
                 g_FrameContext[i].RenderTarget,
@@ -271,6 +273,7 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
                 rtvHandle
             );
 
+            g_FrameContext[i].FenceValue = 0;
             g_FrameContext[i].RTV = rtvHandle;
             rtvHandle.ptr += rtvSize;
         }
@@ -311,10 +314,12 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     if (!g_CommandQueue)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-    IDXGISwapChain3* swapchain3 = nullptr;
-    pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
+    if (!g_Swapchain3)
+    {
+        pSwapChain->QueryInterface(IID_PPV_ARGS(&g_Swapchain3));
+    }
 
-    UINT frameIndex = swapchain3->GetCurrentBackBufferIndex();
+    UINT frameIndex = g_Swapchain3->GetCurrentBackBufferIndex();
     FrameContext& frame = g_FrameContext[frameIndex];
 
     if (g_fence->GetCompletedValue() < frame.FenceValue)
@@ -323,44 +328,46 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         WaitForSingleObject(g_fenceEvent, INFINITE);
     }
 
+    if (!g_MenuActive)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
     // Reset
-    frame.CommandAllocator->Reset();
-    g_CmdList->Reset(frame.CommandAllocator, nullptr);
+    if (frame.CommandAllocator->Reset() != S_OK)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+    if (g_CmdList->Reset(frame.CommandAllocator, nullptr) != S_OK)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-    if (g_MenuActive)
-    {
-        // ImGui frame
-        ImGui_ImplDX12_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
+    // ImGui frame
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
 
-        RenderMenu();
+    RenderMenu();
 
-        // Transition: PRESENT → RENDER_TARGET
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource = frame.RenderTarget;
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        g_CmdList->ResourceBarrier(1, &barrier);
+    // Transition: PRESENT → RENDER_TARGET
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = frame.RenderTarget;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    g_CmdList->ResourceBarrier(1, &barrier);
 
-        // Render Dear ImGui graphics
-        // Set render target
-        g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
+    // Render Dear ImGui graphics
+    // Set render target
+    g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
 
-        // Bind heap
-        ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
-        g_CmdList->SetDescriptorHeaps(1, heaps);
+    // Bind heap
+    ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
+    g_CmdList->SetDescriptorHeaps(1, heaps);
 
-        // Render ImGui
-        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
+    // Render ImGui
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
 
-        // Transition back
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-        g_CmdList->ResourceBarrier(1, &barrier);
-    }
+    // Transition back
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    g_CmdList->ResourceBarrier(1, &barrier);
 
     // Execute
     g_CmdList->Close();
@@ -799,6 +806,12 @@ void UninitializeImGui()
             }
         }
 
+        if (g_Swapchain3)
+        {
+            g_Swapchain3->Release();
+            g_Swapchain3 = nullptr;
+        }
+
         if (g_RTVHeap)
         {
             g_RTVHeap->Release();
@@ -820,6 +833,8 @@ void UninitializeImGui()
             g_SrvHeap = nullptr;
         }
 
+        g_CommandQueue = nullptr;
+
         g_Initialized = false; // force re-init
     }
 }
@@ -829,7 +844,11 @@ bool CleanUpMenu()
     if (MH_DisableHook(MH_ALL_HOOKS) != MH_OK)
         return false;
 
-    SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(OriginalWndProc));
+    if (g_WndProcHooked)
+    {
+        SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(OriginalWndProc));
+        g_WndProcHooked = false;
+    }
 
     UninitializeImGui();
 
