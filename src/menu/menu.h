@@ -31,6 +31,7 @@ struct FrameContext {
     ID3D12CommandAllocator* CommandAllocator;
     ID3D12Resource* RenderTarget;
     D3D12_CPU_DESCRIPTOR_HANDLE RTV;
+    UINT64 FenceValue{ 0 };
 };
 
 bool InitMenu(HMODULE a_Module, bool* a_RunningParam, int a_Delay);

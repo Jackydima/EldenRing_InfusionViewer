@@ -54,6 +54,10 @@ ID3D12DescriptorHeap* g_SrvHeap = nullptr;
 ID3D12CommandQueue* g_CommandQueue = nullptr;
 ID3D12GraphicsCommandList* g_CmdList = nullptr;
 
+static ID3D12Fence* g_fence = nullptr;
+static HANDLE g_fenceEvent = nullptr;
+static UINT64 g_fenceLastSignaledValue = 0;
+
 // Menu globals
 bool g_Initialized = false;
 bool g_WndProcHooked = false;
@@ -66,7 +70,18 @@ bool* g_pRunning = nullptr;
 // Foreward Declarations:
 static void RenderMenu();
 void UninitializeImGui();
+static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam);
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+using CleanupFunction_t = void(__stdcall*)(void);
+static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam)
+{
+    CleanupFunction_t CleanUp = reinterpret_cast<CleanupFunction_t>(a_FunctionParam);
+    Sleep(500);
+    CleanUp();
+    
+    return 0;
+}
 
 static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -132,7 +147,8 @@ static void RenderMenu()
             {
                 if (!config::InfusionViewerActive)
                 {
-                    RemoveEffectForPlayers();
+                    //RemoveEffectForPlayers();
+                    CreateThread(NULL, 0, &CallForCleanUpFunction, reinterpret_cast<LPVOID>(RemoveEffectForPlayers), 0, nullptr);
                 }
             }
             ImGui::PopStyleVar();
@@ -154,7 +170,8 @@ static void RenderMenu()
             {
                 if (!config::PhantomColorActive)
                 {
-                    DeactivatePhantomColor();
+                    //DeactivatePhantomColor();
+                    CreateThread(NULL,0, &CallForCleanUpFunction, reinterpret_cast<LPVOID>(DeactivatePhantomColor), 0, nullptr);
                 }
             }
 
@@ -185,6 +202,8 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        ImGui::StyleColorsDark();
 
         // Setup scaling
         ImGuiStyle& style = ImGui::GetStyle();
@@ -240,10 +259,9 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
         for (UINT i = 0; i < g_BufferCount; i++)
         {
-            g_Device->CreateCommandAllocator(
-                D3D12_COMMAND_LIST_TYPE_DIRECT,
-                IID_PPV_ARGS(&g_FrameContext[i].CommandAllocator)
-            );
+            // Could be error prone!
+            if (g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&g_FrameContext[i].CommandAllocator)) != S_OK)
+                return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
             pSwapChain->GetBuffer(i, IID_PPV_ARGS(&g_FrameContext[i].RenderTarget));
 
@@ -256,6 +274,13 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
             g_FrameContext[i].RTV = rtvHandle;
             rtvHandle.ptr += rtvSize;
         }
+
+        if (g_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)) != S_OK)
+            return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
+        g_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        if (g_fenceEvent == nullptr)
+            return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
         ImGui_ImplWin32_Init(g_Hwnd);
 
@@ -280,18 +305,11 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         g_Initialized = true;
     }
 
-    if (!g_MenuActive)
-        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+    //if (!g_MenuActive)
+    //    return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
     if (!g_CommandQueue)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
-
-    // ImGui frame
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-
-    RenderMenu();
 
     IDXGISwapChain3* swapchain3 = nullptr;
     pSwapChain->QueryInterface(IID_PPV_ARGS(&swapchain3));
@@ -299,42 +317,59 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     UINT frameIndex = swapchain3->GetCurrentBackBufferIndex();
     FrameContext& frame = g_FrameContext[frameIndex];
 
+    if (g_fence->GetCompletedValue() < frame.FenceValue)
+    {
+        g_fence->SetEventOnCompletion(frame.FenceValue, g_fenceEvent);
+        WaitForSingleObject(g_fenceEvent, INFINITE);
+    }
+
     // Reset
     frame.CommandAllocator->Reset();
     g_CmdList->Reset(frame.CommandAllocator, nullptr);
 
-    // Transition: PRESENT → RENDER_TARGET
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier.Transition.pResource = frame.RenderTarget;
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    g_CmdList->ResourceBarrier(1, &barrier);
+    if (g_MenuActive)
+    {
+        // ImGui frame
+        ImGui_ImplDX12_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
 
-    // Render Dear ImGui graphics
-    //const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-    //g_CmdList->ClearRenderTargetView(frame.RTV, clear_color_with_alpha, 0, nullptr);
-    // Set render target
-    g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
+        RenderMenu();
 
-    // Bind heap
-    ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
-    g_CmdList->SetDescriptorHeaps(1, heaps);
+        // Transition: PRESENT → RENDER_TARGET
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = frame.RenderTarget;
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        g_CmdList->ResourceBarrier(1, &barrier);
 
-    // Render ImGui
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
+        // Render Dear ImGui graphics
+        // Set render target
+        g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
 
-    // Transition back
-    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-    g_CmdList->ResourceBarrier(1, &barrier);
+        // Bind heap
+        ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
+        g_CmdList->SetDescriptorHeaps(1, heaps);
+
+        // Render ImGui
+        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
+
+        // Transition back
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        g_CmdList->ResourceBarrier(1, &barrier);
+    }
 
     // Execute
     g_CmdList->Close();
 
     ID3D12CommandList* lists[] = { g_CmdList };
     g_CommandQueue->ExecuteCommandLists(1, lists);
+
+    g_CommandQueue->Signal(g_fence, ++g_fenceLastSignaledValue);
+    frame.FenceValue = g_fenceLastSignaledValue;
 
     return OriginalPresent(pSwapChain, SyncInterval, Flags);
 }
@@ -746,6 +781,9 @@ void UninitializeImGui()
         ImGui_ImplDX12_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
+
+        if (g_fence) { g_fence->Release(); g_fence = nullptr; }
+        if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
 
         for (UINT i = 0; i < g_BufferCount; i++)
         {
