@@ -10,7 +10,7 @@ static void MainLoop()
     {
         currentPlayer = bases::getPlayerPtrByIndex(i);
 
-        if (!currentPlayer || !memory::isReadable(reinterpret_cast<uintptr_t>(currentPlayer)))
+        if (!currentPlayer || !*currentPlayer)
             continue;
 
         if (config::InfusionViewerActive)

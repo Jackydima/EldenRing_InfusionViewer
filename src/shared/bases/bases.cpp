@@ -163,7 +163,7 @@ namespace bases
         if (a_Index < 0 || a_Index > 6)
             return nullptr;
 
-        return memory::readPointerSafe<uintptr_t**>(WorldChrMan, { 0x10EF8, a_Index * 0x10 });
+        return memory::readPointer<uintptr_t**>(WorldChrMan, { 0x10EF8, a_Index * 0x10 });
     }
 
     static uintptr_t getRIPAddress(uintptr_t base, size_t a_lInstrLen, size_t a_lDataPtrOffset)

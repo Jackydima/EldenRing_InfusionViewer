@@ -11,22 +11,22 @@ WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
 
 void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_iEffectID)
 {
-    if (!memory::isReadable(a_CurrentPlayer))
+    if (!a_CurrentPlayer)
         return;
 
-    int32_t* currentRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentRightWep);
-    int32_t* currentLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentLeftWep);
-    int8_t* currentArmStyle = memory::readPointerSafe<int8_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentArmStyle);
+    int32_t* currentRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentRightWep);
+    int32_t* currentLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentLeftWep);
+    int8_t* currentArmStyle = memory::readPointer<int8_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentArmStyle);
 
     if (!currentRightWep || !currentLeftWep || !currentArmStyle)
         return;
 
-    int32_t* primRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primRightWep);
-    int32_t* primLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primLeftWep);
-    int32_t* secRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secRightWep);
-    int32_t* secLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secLeftWep);
-    int32_t* tertRightWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertRightWep);
-    int32_t* tertLeftWep = memory::readPointerSafe<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertLeftWep);
+    int32_t* primRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primRightWep);
+    int32_t* primLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primLeftWep);
+    int32_t* secRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secRightWep);
+    int32_t* secLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secLeftWep);
+    int32_t* tertRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertRightWep);
+    int32_t* tertLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertLeftWep);
 
     if (!primRightWep || !primLeftWep || !secRightWep || !secLeftWep || !tertRightWep || !tertLeftWep)
         return;
@@ -236,10 +236,10 @@ void DeactivatePhantomColor()
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
         currentPlayer = bases::getPlayerPtrByIndex(i);
-        if (!memory::isReadable(reinterpret_cast<uintptr_t>(currentPlayer)))
+        if (!currentPlayer || !*currentPlayer)
             return;
 
-        int32_t* debugPhantomColor = memory::readPointerSafe<int32_t*>(reinterpret_cast<uintptr_t>(currentPlayer), bases::playerOffsets::debugPhantomColor);
+        int32_t* debugPhantomColor = memory::readPointer<int32_t*>(reinterpret_cast<uintptr_t>(currentPlayer), bases::playerOffsets::debugPhantomColor);
         if (!debugPhantomColor)
             return;
 
@@ -249,11 +249,11 @@ void DeactivatePhantomColor()
 
 void SetDebugPhantomColor(int a_index)
 {
-    uintptr_t** pPlayerInstance= bases::getPlayerPtrByIndex(a_index);
-    if (!memory::isReadable(reinterpret_cast<uintptr_t>(pPlayerInstance)))
+    uintptr_t** pCurrentPlayer= bases::getPlayerPtrByIndex(a_index);
+    if (!pCurrentPlayer || !*pCurrentPlayer)
         return;
 
-    int32_t* debugPhantomColor = memory::readPointerSafe<int32_t*>(reinterpret_cast<uintptr_t>(pPlayerInstance), bases::playerOffsets::debugPhantomColor);
+    int32_t* debugPhantomColor = memory::readPointer<int32_t*>(reinterpret_cast<uintptr_t>(pCurrentPlayer), bases::playerOffsets::debugPhantomColor);
     if (!debugPhantomColor)
         return;
 

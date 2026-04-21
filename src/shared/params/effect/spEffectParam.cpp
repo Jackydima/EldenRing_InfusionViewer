@@ -6,7 +6,7 @@ namespace bases
 
     bool SpEffectParam::init(uintptr_t SoloParamRepository)
     {
-        this->m_Base = memory::readPointerSafe<uintptr_t*>(SoloParamRepository, { 0x4C0, 0x80, 0x80 });
+        this->m_Base = memory::readPointer<uintptr_t*>(SoloParamRepository, { 0x4C0, 0x80, 0x80 });
         logger::println("SpEffectParam: %p", reinterpret_cast<LPVOID>(this->m_Base));
         if (!memory::isReadable(reinterpret_cast<uintptr_t>(m_Base)))
             return false;

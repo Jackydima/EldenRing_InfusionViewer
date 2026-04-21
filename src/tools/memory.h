@@ -39,7 +39,7 @@ namespace memory
 
 	template <typename T>
 	requires std::is_pointer_v<T>
-	inline T readPointerSafe(uintptr_t a_lBase, const std::vector<intptr_t>& a_lOffsets)
+	inline T readPointer(uintptr_t a_lBase, const std::vector<intptr_t>& a_lOffsets)
 	{
 		if (!a_lBase)
 			return reinterpret_cast<T>(nullptr);
@@ -50,8 +50,8 @@ namespace memory
 		uintptr_t current = a_lBase;
 		for (size_t offset : a_lOffsets)
 		{
-			if (!isReadable(current))
-				return reinterpret_cast<T>(nullptr);
+			//if (!isReadable(current)) // Slow Mechanism :(
+			//	return reinterpret_cast<T>(nullptr);
 
 			current = *reinterpret_cast<uintptr_t*>(current);
 			if (!current)
