@@ -32,7 +32,7 @@ namespace bases
         auto effectOffset = this->EffecIdMap.find(a_ID);
         if (effectOffset == this->EffecIdMap.end())
         {
-            logger::println("Id not found in GetEffectById");
+            //logger::println("Id not found in GetEffectById");
             return nullptr;
         }
 
@@ -61,6 +61,37 @@ namespace bases
         this->OriginalEffects.insert({ a_ID, effect });
 
         return effectData;
+    }
+
+    EffectData* SpEffectParam::CreateCustomEffect(int32_t a_EffectId)
+    {
+        if (GetEffectById(a_EffectId) != nullptr)
+        {
+            logger::println("Effect is already present in the basegame! ABORT!");
+            // OR return StartEffectModdingById(a_EffectId);
+            return nullptr;
+        }
+
+        if (this->CustomEffectsMap.find(a_EffectId) != this->CustomEffectsMap.end())
+        {
+            logger::println("Effect already exists!");
+            return nullptr;
+        }
+
+        EffectData newEffect = EffectData();
+        this->CustomEffectsMap.insert({ a_EffectId, newEffect });
+        return &this->CustomEffectsMap.find(a_EffectId)->second;
+    }
+
+    EffectData* SpEffectParam::GetCustomEffectById(int32_t a_EffectId)
+    {
+        auto result = this->CustomEffectsMap.find(a_EffectId);
+        if (result == this->CustomEffectsMap.end())
+        {
+            return nullptr;
+        }
+
+        return &result->second;
     }
 
     bool SpEffectParam::RestoreEffectById(int a_ID)

@@ -39,6 +39,8 @@ namespace bases
     // Foreward declarations
     static bool initCodeSegments();
     static uintptr_t getRIPAddress(uintptr_t base, size_t a_lInstrLen = 7ull, size_t a_lDataPtrOffset = 3ull);
+    static bool HookFunctions();
+    static void __stdcall Hook_GetEffectDataById(GameEffectData* a_pEffectDataStruct, int32_t a_EffectId);
     // Foreward declarations END
 
     static uintptr_t StartAddress = 0;
@@ -55,6 +57,9 @@ namespace bases
 
     CallVfx_f CallVfx = nullptr;
     PrepareVfxResource_f PrepareVfxResource = nullptr;
+
+    GetEffectDataById_t GetEffectDataById = nullptr;
+    GetEffectDataById_t OriginalGetEffectDataById = nullptr;
 
 	bool initialize()
 	{
@@ -88,23 +93,24 @@ namespace bases
 
         result += 18; // aob pattern offset of instruction!
         SoloParamRepository = getRIPAddress(result);
-        logger::println("SoloParamRepository: %p", reinterpret_cast<LPVOID>(SoloParamRepository));
+        logger::println("SoloParamRepository: %p", SoloParamRepository);
 
         if (!SpEffectParamInst.init(SoloParamRepository))
             return false;
 
-        AddEffect = reinterpret_cast<AddEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "0f 28 0d ?? ?? ?? ?? ?? 8d ?? ?? 0f 29 ?? ?? ?? 0f b6 d8", '?') - 0x1D); // correction!
-        logger::println("Address of g_AddEffect: %p", reinterpret_cast<LPVOID>(AddEffect));
+        AddEffect = reinterpret_cast<AddEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "0f 28 0d ?? ?? ?? ?? ?? 8d ?? ?? 0f 29 ?? ?? ?? 0f b6 d8", '?'));
+        logger::println("Address of g_AddEffect: %p", AddEffect);
         if (AddEffect == 0)
             return false;
+        AddEffect = reinterpret_cast<AddEffect_t>(reinterpret_cast<intptr_t>(AddEffect) - 0x1D); // correction!
 
         RemoveEffect = reinterpret_cast<RemoveEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 83 EC 28 8B C2 48 8B 51 08 48 85 D2 ?? ?? 90", '?'));
-        logger::println("Address of g_RemoveEffect: %p", reinterpret_cast<LPVOID>(RemoveEffect));
+        logger::println("Address of g_RemoveEffect: %p", RemoveEffect);
         if (RemoveEffect == 0)
             return false;
 
         CallVfx = reinterpret_cast<CallVfx_f>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "40 55 56 41 56 48 83 EC 70 33 C0 48 8B F1 83 CD FF", '?'));
-        logger::println("Address of CallVfx: %p", reinterpret_cast<LPVOID>(CallVfx));
+        logger::println("Address of CallVfx: %p", CallVfx);
         if (CallVfx == 0)
             return false;
 
@@ -113,8 +119,44 @@ namespace bases
         if (PrepareVfxResource == 0)
             return false;
 
+        GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8b 0d ?? ?? ?? ?? 45 33 c0 41 8d 50 0f", '?'));
+        logger::println("Address of GetEffectDataById: %p", GetEffectDataById);
+        if (GetEffectDataById == 0)
+            return false;
+
+        GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(reinterpret_cast<intptr_t>(GetEffectDataById) - 0x68); // correction!
+
+        if (!HookFunctions())
+            return false;
+
         return true;
 	}
+
+
+    static bool HookFunctions()
+    {
+        if (MH_CreateHook(GetEffectDataById, &Hook_GetEffectDataById, (LPVOID*)&OriginalGetEffectDataById) != MH_OK
+            || MH_EnableHook(GetEffectDataById) != MH_OK)
+        {
+            logger::println("Hooking GetEffectDataById went wrong");
+            return false;
+        }
+
+        return true;
+    }
+
+    static void __stdcall Hook_GetEffectDataById(GameEffectData* a_pEffectDataStruct, int32_t a_EffectId)
+    {
+        // If no custom effect is found just continue with original!
+        EffectData* effectDataPtr = SpEffectParamInst.GetCustomEffectById(a_EffectId);
+        if (!effectDataPtr)
+            return OriginalGetEffectDataById(a_pEffectDataStruct, a_EffectId);
+
+        a_pEffectDataStruct->effectData = effectDataPtr;
+        a_pEffectDataStruct->effectID = a_EffectId;
+        a_pEffectDataStruct->result = 0x4;
+    }
+
 
     uintptr_t** getPlayerPtrByIndex(int a_Index)
     {

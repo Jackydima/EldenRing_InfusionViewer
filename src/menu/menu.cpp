@@ -72,6 +72,7 @@ bool* g_pRunning = nullptr;
 static void RenderMenu();
 void UninitializeImGui();
 static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam);
+static bool StartHooking();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 using CleanupFunction_t = void(__stdcall*)(void);
@@ -648,13 +649,6 @@ static bool InitGameMenuPointers(HMODULE a_Module)
 
 static bool StartHooking()
 {
-    if (MH_Initialize() != MH_OK)
-    {
-        logger::println("MH: Init failed");
-        return false;
-    }
-
-    //Present_t present = reinterpret_cast<Present_t>(Present_Func);
     if (!Present_Func)
     {
         logger::println("Getting Present vtable function failed!");
@@ -718,7 +712,6 @@ static bool StartHooking()
         return false;
     }
 
-
     //XInputGetState_t xInputGetState = reinterpret_cast<XInputGetState_t>(XInputGetState_Func);
     if (!XInputGetState_Func)
     {
@@ -748,11 +741,16 @@ static bool StartHooking()
         logger::println("Getting SetCursorPos function failed!");
         return false;
     }
-    MH_CreateHook(SetCursorPos_Func, &Hook_SetCursorPos, (LPVOID*)&OriginalSetCursorPos);
+    if (MH_CreateHook(SetCursorPos_Func, &Hook_SetCursorPos, (LPVOID*)&OriginalSetCursorPos) != MH_OK)
+    {
+        logger::println("MH: Hook SetCursorPos_Func failed");
+        return false;
+    }
+
 
     if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
-        logger::println("MH: Enabling Hooks failed!");
+        logger::println("MH: Enabling Hooking Functions failed");
         return false;
     }
 
@@ -841,9 +839,6 @@ void UninitializeImGui()
 
 bool CleanUpMenu()
 {
-    if (MH_DisableHook(MH_ALL_HOOKS) != MH_OK)
-        return false;
-
     if (g_WndProcHooked)
     {
         SetWindowLongPtrW(g_Hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(OriginalWndProc));
@@ -852,5 +847,5 @@ bool CleanUpMenu()
 
     UninitializeImGui();
 
-    return MH_Uninitialize() == MH_OK;
+    return true;;
 }

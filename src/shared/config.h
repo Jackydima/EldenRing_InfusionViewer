@@ -2,7 +2,7 @@
 
 namespace config
 {
-	extern unsigned int cycleSpeed;
+	extern unsigned long cycleSpeed;
 	extern bool InfusionViewerActive;
 	extern bool PhantomColorActive;
 	extern int PhantomSelfId;

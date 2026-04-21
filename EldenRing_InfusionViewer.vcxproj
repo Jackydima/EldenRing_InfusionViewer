@@ -17,7 +17,7 @@
     <ClCompile Include="src\shared\config.cpp" />
     <ClCompile Include="src\shared\params\effect\spEffectParam.cpp" />
     <ClCompile Include="src\shared\params\params.cpp" />
-    <ClCompile Include="src\shared\scripts\script.cpp" />
+    <ClCompile Include="src\shared\scripts\scripts.cpp" />
     <ClCompile Include="src\tools\memory.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_demo.cpp" />

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <MinHook.h>
 
 #include "../../tools/debug_print.h"
 #include "../../tools/memory.h"
@@ -27,6 +28,9 @@ namespace bases
 
 	using PrepareVfxResource_f = void(*__stdcall)(VFXResource* a_pVfxResource, int64_t a_VfxId, EffectData* a_pEffect );
 	extern PrepareVfxResource_f PrepareVfxResource;
+
+	using GetEffectDataById_t = void(*__stdcall)(GameEffectData* a_pEffectDataStruct, int32_t effectId);
+	extern GetEffectDataById_t GetEffectDataById;
 
 	namespace playerGameDataOffset
 	{

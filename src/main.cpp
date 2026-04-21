@@ -37,6 +37,14 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
     freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
     freopen_s((FILE**)stdin, "CONIN$", "r", stdin);
 #endif // DEBUG
+
+    if (MH_Initialize() != MH_OK)
+    {
+        logger::println("MH Failed init");
+        FreeLibraryAndExitThread((HMODULE)lpParam, 0);
+        return 0;
+    }
+
     int tries = 10;
     while (!bases::initialize())
     {
@@ -75,8 +83,12 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
 
     RemoveEffectForPlayers();
 
+    MH_DisableHook(MH_ALL_HOOKS); // Ignore errors here for now
+    MH_Uninitialize();
+
     Sleep(100);
     CleanUpMenu();
+
 
     FreeLibraryAndExitThread((HMODULE)lpParam, 0);
     return 0;

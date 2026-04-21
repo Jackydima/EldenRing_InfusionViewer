@@ -3,7 +3,7 @@
 
 namespace config
 {
-	unsigned int cycleSpeed = 20;
+	unsigned long cycleSpeed = 20;
 	bool InfusionViewerActive = true;
 	bool PhantomColorActive = false;
 	int PhantomSelfId = -1;

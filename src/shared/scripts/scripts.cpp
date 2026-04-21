@@ -2,7 +2,7 @@
 
 #include "scripts.h"
 
-int g_EffectList[PLAYER_AMOUNT] = { 86, 15, 17, 5, 36, 46 };
+int g_EffectList[PLAYER_AMOUNT] = { 3001, 3002, 3003, 3004, 3005, 3006 };
 
 WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
 {
@@ -31,7 +31,7 @@ void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_iEffectID)
     if (!primRightWep || !primLeftWep || !secRightWep || !secLeftWep || !tertRightWep || !tertLeftWep)
         return;
 
-    EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(a_iEffectID);
+    EffectData* effectData = bases::SpEffectParamInst.GetCustomEffectById(a_iEffectID);
     if (!effectData)
         return;
 
@@ -178,7 +178,8 @@ bool InitInfusionEffects()
     // Init Effect Modding
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
-        EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
+        //EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
+        EffectData* effectData = bases::SpEffectParamInst.CreateCustomEffect(g_EffectList[i]);
         if (effectData == nullptr)
         {
             logger::println("Nullpointer EffectData");
@@ -188,9 +189,27 @@ bool InitInfusionEffects()
         effectData->effectEndurance = -1.0f;
         effectData->spCategory = 0;
         effectData->stateInfo = 0;
+        effectData->vowType0 = 1;
+        effectData->vowType1 = 1;
+        effectData->vowType2 = 1;
+        effectData->vowType3 = 1;
+        effectData->vowType4 = 1;
+        effectData->vowType5 = 1;
+        effectData->vowType6 = 1;
+        effectData->vowType7 = 1;
+        effectData->vowType8 = 1;
+        effectData->vowType9 = 1;
+        effectData->vowType10 = 1;
+        effectData->vowType11 = 1;
+        effectData->vowType12 = 1;
+        effectData->vowType13 = 1;
+        effectData->vowType14 = 1;
+        effectData->vowType15 = 1;
+
         if (i == 0) // SelfPlayer
         {
-            effectData->effectTargetSelf = 1; // TargetSelf Active!
+            effectData->effectTargetSelf = 1;
+            effectData->effectTargetSelfTarget = 1;
             effectData->effectTargetPlayer = 1;
             effectData->effectTargetEnemy = 0;
             effectData->effectTargetFriend = 0;
@@ -199,8 +218,10 @@ bool InitInfusionEffects()
         }
         else
         {
+            effectData->effectTargetSelfTarget = 0;
             effectData->effectTargetSelf = 0;
             effectData->effectTargetPlayer = 1;
+            effectData->effectTargetOpposeTarget = 1;
             effectData->effectTargetEnemy = 1;
             effectData->effectTargetFriend = 1;
             effectData->effectTargetEnemy = 1;
