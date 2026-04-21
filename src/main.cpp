@@ -82,6 +82,7 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
     }
 
     RemoveEffectForPlayers();
+    DeactivatePhantomColor();
 
     MH_DisableHook(MH_ALL_HOOKS); // Ignore errors here for now
     MH_Uninitialize();
