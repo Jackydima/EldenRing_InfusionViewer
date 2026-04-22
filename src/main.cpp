@@ -58,7 +58,7 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         Sleep(1000);
     }
 
-    DWORD delayTime = 2000;
+    DWORD delayTime = 6000;
     if (tries == 10)
         delayTime = 0;
 

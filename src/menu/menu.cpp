@@ -71,6 +71,7 @@ bool* g_pRunning = nullptr;
 // Foreward Declarations:
 static void RenderMenu();
 void UninitializeImGui();
+void WaitForPendingOperations();
 static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam);
 static bool StartHooking();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -107,7 +108,7 @@ static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
         break;
     }
 
-    if (g_MenuActive)
+    if (g_Initialized && g_MenuActive)
     {
         if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
             return true;
@@ -185,8 +186,6 @@ static void RenderMenu()
     ImGui::End();
 
     //ImGui::ShowDemoWindow();
-
-    ImGui::Render();
 }
 
 // x64 this call has rcx for std call in the first parameter!
@@ -332,12 +331,6 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     if (!g_MenuActive)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
-    // Reset
-    if (frame.CommandAllocator->Reset() != S_OK)
-        return OriginalPresent(pSwapChain, SyncInterval, Flags);
-    if (g_CmdList->Reset(frame.CommandAllocator, nullptr) != S_OK)
-        return OriginalPresent(pSwapChain, SyncInterval, Flags);
-
     // ImGui frame
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -345,48 +338,95 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
 
     RenderMenu();
 
+    // Reset
+    if (frame.CommandAllocator->Reset() != S_OK)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
     // Transition: PRESENT → RENDER_TARGET
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
     barrier.Transition.pResource = frame.RenderTarget;
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+    if (FAILED(g_CmdList->Reset(frame.CommandAllocator, nullptr)))
+    {
+        logger::println("g_CmdList->Reset failed");
+    }
     g_CmdList->ResourceBarrier(1, &barrier);
-
-    // Render Dear ImGui graphics
-    // Set render target
     g_CmdList->OMSetRenderTargets(1, &frame.RTV, FALSE, nullptr);
-
-    // Bind heap
-    ID3D12DescriptorHeap* heaps[] = { g_SrvHeap };
-    g_CmdList->SetDescriptorHeaps(1, heaps);
+    g_CmdList->SetDescriptorHeaps(1, &g_SrvHeap);
 
     // Render ImGui
+    ImGui::Render();
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_CmdList);
 
     // Transition back
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     g_CmdList->ResourceBarrier(1, &barrier);
-
-    // Execute
     g_CmdList->Close();
 
-    ID3D12CommandList* lists[] = { g_CmdList };
-    g_CommandQueue->ExecuteCommandLists(1, lists);
+    g_CommandQueue->ExecuteCommandLists(1, (ID3D12CommandList* const*)&g_CmdList);
 
     g_CommandQueue->Signal(g_fence, ++g_fenceLastSignaledValue);
     frame.FenceValue = g_fenceLastSignaledValue;
 
-    return OriginalPresent(pSwapChain, SyncInterval, Flags);
+    auto hr = OriginalPresent(pSwapChain, SyncInterval, Flags);
+    if (hr != S_OK)
+    {
+        auto reason = g_Device->GetDeviceRemovedReason();
+        logger::println("Issue with Present: %x", hr);
+        logger::println("Reason: %x", reason);
+    }
+    return hr;
+}
+
+
+void WaitForPendingOperations()
+{
+    g_CommandQueue->Signal(g_fence, ++g_fenceLastSignaledValue);
+
+    g_fence->SetEventOnCompletion(g_fenceLastSignaledValue, g_fenceEvent);
+    ::WaitForSingleObject(g_fenceEvent, INFINITE);
 }
 
 static HRESULT STDMETHODCALLTYPE Hook_ResizeBuffer(IDXGISwapChain* p_This, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
 {
-    UninitializeImGui();
+    // Clear RenderTarget first
+    if (g_Initialized)
+    {
+        WaitForPendingOperations();
+        for (UINT i = 0; i < BufferCount; i++)
+        {
+            FrameContext& frame = g_FrameContext[i];
+            if (frame.RenderTarget)
+            {
+                frame.RenderTarget->Release();
+                frame.RenderTarget = nullptr;
+            }
+        }
+    }
 
-    return OriginalResizeBuffer(p_This, BufferCount, Width, Height, NewFormat,SwapChainFlags);
+    // Continue with Original
+    auto hr = OriginalResizeBuffer(p_This, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+
+    // Afterwards CreateRenderTarget again! (ImGui win32 directx12 example)
+    if (g_Initialized)
+    {
+        for (UINT i = 0; i < BufferCount; i++)
+        {
+            FrameContext& frame = g_FrameContext[i];
+            ID3D12Resource* pBackBuffer = nullptr;
+            p_This->GetBuffer(i, IID_PPV_ARGS(&pBackBuffer));
+            g_Device->CreateRenderTargetView(pBackBuffer, nullptr, frame.RTV);
+            frame.RenderTarget = pBackBuffer;
+        }
+    }
+
+    return hr;
 }
 
 static void Hook_ExecuteCommandLists(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* ppCommandLists) {
@@ -782,13 +822,20 @@ void UninitializeImGui()
 {
     if (g_Initialized)
     {
+        WaitForPendingOperations();
+        g_Initialized = false; // force re-init
+        g_CommandQueue = nullptr;
+
         ImGui_ImplDX12_InvalidateDeviceObjects();
         ImGui_ImplDX12_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
 
-        if (g_fence) { g_fence->Release(); g_fence = nullptr; }
-        if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
+        if (g_Swapchain3)
+        {
+            g_Swapchain3->Release();
+            g_Swapchain3 = nullptr;
+        }
 
         for (UINT i = 0; i < g_BufferCount; i++)
         {
@@ -804,10 +851,10 @@ void UninitializeImGui()
             }
         }
 
-        if (g_Swapchain3)
+        if (g_CmdList)
         {
-            g_Swapchain3->Release();
-            g_Swapchain3 = nullptr;
+            g_CmdList->Release();
+            g_CmdList = nullptr;
         }
 
         if (g_RTVHeap)
@@ -816,24 +863,18 @@ void UninitializeImGui()
             g_RTVHeap = nullptr;
         }
 
-        delete[] g_FrameContext;
-        g_FrameContext = nullptr;
-
-        if (g_CmdList)
-        {
-            g_CmdList->Release();
-            g_CmdList = nullptr;
-        }
-
         if (g_SrvHeap)
         {
             g_SrvHeap->Release();
             g_SrvHeap = nullptr;
         }
 
-        g_CommandQueue = nullptr;
+        if (g_fence) { g_fence->Release(); g_fence = nullptr; }
+        if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
 
-        g_Initialized = false; // force re-init
+        delete[] g_FrameContext;
+        g_Device = nullptr;
+        g_FrameContext = nullptr;
     }
 }
 
