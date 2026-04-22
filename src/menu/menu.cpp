@@ -70,8 +70,9 @@ bool* g_pRunning = nullptr;
 
 // Foreward Declarations:
 static void RenderMenu();
-void UninitializeImGui();
-void WaitForPendingOperations();
+static void UninitializeImGui();
+static void CleanUpDevice();
+static void WaitForPendingOperations();
 static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam);
 static bool StartHooking();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -229,16 +230,27 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         // Create a temporary allocator for command list creation
         ID3D12CommandAllocator* tempAllocator = nullptr;
         if (FAILED(g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&tempAllocator))))
+        {
+            CleanUpDevice();
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
+        }
 
         if (FAILED(g_Device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, tempAllocator, nullptr, IID_PPV_ARGS(&g_CmdList))))
+        {
+            CleanUpDevice();
+            tempAllocator->Release();
+            tempAllocator = nullptr;
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
-
+        }
+           
         tempAllocator->Release();
         tempAllocator = nullptr;
 
         if (FAILED(g_CmdList->Close()))
+        {
+            CleanUpDevice();
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
+        }
 
         D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
         rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
@@ -262,10 +274,16 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         {
             // Could be error prone!
             if (g_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&g_FrameContext[i].CommandAllocator)) != S_OK)
+            {
+                CleanUpDevice();
                 return OriginalPresent(pSwapChain, SyncInterval, Flags);
+            }
 
             if (pSwapChain->GetBuffer(i, IID_PPV_ARGS(&g_FrameContext[i].RenderTarget)) != S_OK)
+            {
+                CleanUpDevice();
                 return OriginalPresent(pSwapChain, SyncInterval, Flags);
+            }
 
             g_Device->CreateRenderTargetView(
                 g_FrameContext[i].RenderTarget,
@@ -279,11 +297,17 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         }
 
         if (g_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)) != S_OK)
+        {
+            CleanUpDevice();
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
+        }
 
         g_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
         if (g_fenceEvent == nullptr)
+        {
+            CleanUpDevice();
             return OriginalPresent(pSwapChain, SyncInterval, Flags);
+        }
 
         ImGui_ImplWin32_Init(g_Hwnd);
 
@@ -818,7 +842,7 @@ bool InitMenu(HMODULE a_Module, bool* a_pRunningParam, int a_Delay)
     return true;
 }
 
-void UninitializeImGui()
+static void UninitializeImGui()
 {
     if (g_Initialized)
     {
@@ -831,51 +855,56 @@ void UninitializeImGui()
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
 
-        if (g_Swapchain3)
-        {
-            g_Swapchain3->Release();
-            g_Swapchain3 = nullptr;
-        }
-
-        for (UINT i = 0; i < g_BufferCount; i++)
-        {
-            if (g_FrameContext[i].RenderTarget)
-            {
-                g_FrameContext[i].RenderTarget->Release();
-                g_FrameContext[i].RenderTarget = nullptr;
-            }
-            if (g_FrameContext[i].CommandAllocator) 
-            {
-                g_FrameContext[i].CommandAllocator->Release();
-                g_FrameContext[i].CommandAllocator = nullptr;
-            }
-        }
-
-        if (g_CmdList)
-        {
-            g_CmdList->Release();
-            g_CmdList = nullptr;
-        }
-
-        if (g_RTVHeap)
-        {
-            g_RTVHeap->Release();
-            g_RTVHeap = nullptr;
-        }
-
-        if (g_SrvHeap)
-        {
-            g_SrvHeap->Release();
-            g_SrvHeap = nullptr;
-        }
-
-        if (g_fence) { g_fence->Release(); g_fence = nullptr; }
-        if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
-
-        delete[] g_FrameContext;
-        g_Device = nullptr;
-        g_FrameContext = nullptr;
+        CleanUpDevice();
     }
+}
+
+static void CleanUpDevice()
+{
+    if (g_Swapchain3)
+    {
+        g_Swapchain3->Release();
+        g_Swapchain3 = nullptr;
+    }
+
+    for (UINT i = 0; i < g_BufferCount; i++)
+    {
+        if (g_FrameContext[i].RenderTarget)
+        {
+            g_FrameContext[i].RenderTarget->Release();
+            g_FrameContext[i].RenderTarget = nullptr;
+        }
+        if (g_FrameContext[i].CommandAllocator)
+        {
+            g_FrameContext[i].CommandAllocator->Release();
+            g_FrameContext[i].CommandAllocator = nullptr;
+        }
+    }
+
+    if (g_CmdList)
+    {
+        g_CmdList->Release();
+        g_CmdList = nullptr;
+    }
+
+    if (g_RTVHeap)
+    {
+        g_RTVHeap->Release();
+        g_RTVHeap = nullptr;
+    }
+
+    if (g_SrvHeap)
+    {
+        g_SrvHeap->Release();
+        g_SrvHeap = nullptr;
+    }
+
+    if (g_fence) { g_fence->Release(); g_fence = nullptr; }
+    if (g_fenceEvent) { CloseHandle(g_fenceEvent); g_fenceEvent = nullptr; }
+
+    delete[] g_FrameContext;
+    g_Device = nullptr;
+    g_FrameContext = nullptr;
 }
 
 bool CleanUpMenu()
