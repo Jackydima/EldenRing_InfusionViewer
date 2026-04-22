@@ -119,7 +119,7 @@ namespace memory
 			if (p_retPattern[i].m_Mask != 0xFF)
 				continue;
 
-			a_rIBadBytes[p_retPattern[i].m_Value] = i;
+			a_rIBadBytes[p_retPattern[i].m_Value] = static_cast<int>(i);
 		}
 	}
 
