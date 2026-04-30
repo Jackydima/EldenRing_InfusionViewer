@@ -2,19 +2,14 @@
 #include "main.h"
 
 bool g_pRunning = true;
+constexpr int TRIES = 20;
 
 static void MainLoop()
 {
-    uintptr_t** currentPlayer;
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
-        currentPlayer = bases::getPlayerPtrByIndex(i);
-
-        if (!currentPlayer || !*currentPlayer)
-            continue;
-
         if (config::InfusionViewerActive)
-            ProcessPlayerInfusion(reinterpret_cast<uintptr_t>(currentPlayer), g_EffectList[i]);
+            ProcessPlayerInfusion(i, g_EffectList[i]);
 
         if (config::PhantomColorActive)
             SetDebugPhantomColor(i);
@@ -45,7 +40,7 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         return 0;
     }
 
-    int tries = 10;
+    int tries = TRIES;
     while (!bases::initialize())
     {
         if (tries <= 0)
@@ -59,9 +54,10 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
     }
 
     DWORD delayTime = 6000;
-    if (tries == 10)
+    if (tries == TRIES)
         delayTime = 0;
 
+    // Alternatively check for initiated present calls, like wait for several frame presented
     if (!InitMenu((HMODULE)lpParam, &g_pRunning, delayTime))
     {
         logger::println("Could not initilialize Hooking Rendering");

@@ -24,7 +24,7 @@ enum WeaponInfusion
 };
 
 WeaponInfusion getInfusionValue(int32_t a_iWeaponID);
-void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_iEffectID);
+void ProcessPlayerInfusion(int a_CurrentPlayerIndex, int a_iEffectID);
 void RemoveEffectForPlayers();
 bool InitInfusionEffects();
 

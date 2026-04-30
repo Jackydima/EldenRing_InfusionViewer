@@ -81,7 +81,7 @@ using CleanupFunction_t = void(__stdcall*)(void);
 static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam)
 {
     CleanupFunction_t CleanUp = reinterpret_cast<CleanupFunction_t>(a_FunctionParam);
-    Sleep(500);
+    Sleep(config::cycleSpeed + 200);
     CleanUp();
     
     return 0;
@@ -144,6 +144,10 @@ static void RenderMenu()
             ImGui::SeparatorText("Info");
             ImGui::Text("To open or close the Menu use the Keys 'ALT + Num1'");
             ImGui::Text("To Deactive and Unload this Mod press 'ALT + End'");
+
+            ImGui::SeparatorText("Info");
+            ImGui::Text("Define the Cyclespeed for updating the visual effects!");
+            ImGui::DragInt("Cycle-Speed", &config::cycleSpeed, 1.0f, 1, 9999);
 
             ImGui::SeparatorText("Infusion Viewer:");
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));

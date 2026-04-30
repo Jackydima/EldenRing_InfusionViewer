@@ -9,24 +9,25 @@ WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
     return static_cast<WeaponInfusion>((a_iWeaponID / 100) % 100);
 }
 
-void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_iEffectID)
+void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
 {
-    if (!a_CurrentPlayer)
+    uintptr_t currentPlayerAdr = reinterpret_cast<uintptr_t>(bases::getPlayerPtrByIndex(a_PlayerIndex));
+    if (!currentPlayerAdr || !*reinterpret_cast<uintptr_t*>(currentPlayerAdr))
         return;
 
-    int32_t* currentRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentRightWep);
-    int32_t* currentLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentLeftWep);
-    int8_t* currentArmStyle = memory::readPointer<int8_t*>(a_CurrentPlayer, bases::playerGameDataOffset::currentArmStyle);
+    int32_t* currentRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentRightWep);
+    int32_t* currentLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentLeftWep);
+    int8_t* currentArmStyle = memory::readPointer<int8_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentArmStyle);
 
     if (!currentRightWep || !currentLeftWep || !currentArmStyle)
         return;
 
-    int32_t* primRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primRightWep);
-    int32_t* primLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::primLeftWep);
-    int32_t* secRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secRightWep);
-    int32_t* secLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::secLeftWep);
-    int32_t* tertRightWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertRightWep);
-    int32_t* tertLeftWep = memory::readPointer<int32_t*>(a_CurrentPlayer, bases::playerGameDataOffset::tertLeftWep);
+    int32_t* primRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::primRightWep);
+    int32_t* primLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::primLeftWep);
+    int32_t* secRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::secRightWep);
+    int32_t* secLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::secLeftWep);
+    int32_t* tertRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::tertRightWep);
+    int32_t* tertLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::tertLeftWep);
 
     if (!primRightWep || !primLeftWep || !secRightWep || !secLeftWep || !tertRightWep || !tertLeftWep)
         return;
@@ -156,7 +157,7 @@ void ProcessPlayerInfusion(uintptr_t a_CurrentPlayer, int a_iEffectID)
     effectData->vfxId = rightVfxID;
     effectData->vfxId1 = leftVfxID;
 
-    bases::AddEffect(*reinterpret_cast<uintptr_t**>(a_CurrentPlayer), a_iEffectID, true);
+    bases::AddEffect(*reinterpret_cast<uintptr_t**>(currentPlayerAdr), a_iEffectID, true);
 }
 
 void RemoveEffectForPlayers()
@@ -247,9 +248,9 @@ void DeactivatePhantomColor()
     }
 }
 
-void SetDebugPhantomColor(int a_index)
+void SetDebugPhantomColor(int a_PlayerIndex)
 {
-    uintptr_t** pCurrentPlayer= bases::getPlayerPtrByIndex(a_index);
+    uintptr_t** pCurrentPlayer= bases::getPlayerPtrByIndex(a_PlayerIndex);
     if (!pCurrentPlayer || !*pCurrentPlayer)
         return;
 
@@ -257,7 +258,7 @@ void SetDebugPhantomColor(int a_index)
     if (!debugPhantomColor)
         return;
 
-    switch (a_index)
+    switch (a_PlayerIndex)
     {
     case 0: *debugPhantomColor = config::PhantomSelfId; break;
     case 1: *debugPhantomColor = config::NetPlayer1Id; break;

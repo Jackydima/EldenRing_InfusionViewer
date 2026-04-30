@@ -3,7 +3,7 @@
 
 namespace config
 {
-	unsigned long cycleSpeed = 20;
+	int cycleSpeed = 100; // 100 is efficient enough to no skip vfx bugs, and fast enough to see
 	bool InfusionViewerActive = true;
 	bool PhantomColorActive = false;
 	int PhantomSelfId = -1;
