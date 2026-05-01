@@ -60,9 +60,7 @@ namespace memory
 					return 0;
 				}
 				uReturnVal = uCurrentAddress;
-
-				uCurrentAddress += bytePatternSize; // Skip a whole pattern length
-				//uCurrentAddress += 1;
+				uCurrentAddress += 1;
 				continue;
 			}
 
@@ -78,6 +76,7 @@ namespace memory
 		BYTE u8Value;
 		BYTE u8TargetValue;
 		int iIndex;
+
 		for (int i = static_cast<int>(a_rVecRetPattern.size()) - 1; i >= 0; i--)
 		{
 			u8Mask = a_rVecRetPattern[i].m_Mask;
@@ -97,7 +96,7 @@ namespace memory
 
 			// shift to the right to match bad byte!
 			int iShift = i - iIndex;
-			if (iShift <= 0) // Should not happen
+			if (iShift <= 0)
 				iShift = 1;
 
 			return static_cast<size_t>(iShift);
@@ -107,19 +106,23 @@ namespace memory
 
 	static void prepareBadBytes(const std::vector<PatternItem>& p_retPattern, int a_rIBadBytes[BUFFER_SIZE])
 	{
-		// Initialization
-		for (size_t i = 0; i < BUFFER_SIZE; i++)
-		{
-			a_rIBadBytes[i] = -1;
+		size_t patternSize = p_retPattern.size();
+
+		int lastWildcardIdx = -1;
+		for (int i = static_cast<int>(patternSize) - 1; i >= 0; i--) {
+			if (p_retPattern[i].m_Mask != 0xFF) {
+				lastWildcardIdx = i;
+				break;
+			}
 		}
 
-		// Fill the value of each pattern byte into the corresponding last index found
-		for (size_t i = 0; i < p_retPattern.size(); i++)
-		{
-			if (p_retPattern[i].m_Mask != 0xFF)
-				continue;
+		for (int i = 0; i < BUFFER_SIZE; i++) {
+			a_rIBadBytes[i] = lastWildcardIdx;
+		}
 
-			a_rIBadBytes[p_retPattern[i].m_Value] = static_cast<int>(i);
+		// Fill known bytes that appear AFTER the last wildcard
+		for (int i = lastWildcardIdx + 1; i < static_cast<int>(patternSize) - 1; i++) {
+			a_rIBadBytes[p_retPattern[i].m_Value] = i;
 		}
 	}
 

@@ -24,8 +24,6 @@ namespace bases
 		// Custom Created Effects
 		std::map<int32_t, EffectData> CustomEffectsMap;
 
-		EffectData* GetEffectById(int a_ID);
-
 	public:
 		SpEffectParam();
 		~SpEffectParam();
@@ -35,6 +33,7 @@ namespace bases
 		EffectData* StartEffectModdingById(int a_ID);
 		EffectData* CreateCustomEffect(int32_t a_EffectId);
 		EffectData* GetCustomEffectById(int32_t a_EffectId);
+		EffectData* GetEffectById(int a_ID);
 		//EffectData* CreatedCustomEffectByEffect(int32_t a_EffectId, Effect& a_BaseEffect); // TODO
 
 

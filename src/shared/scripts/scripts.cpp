@@ -2,7 +2,7 @@
 
 #include "scripts.h"
 
-int g_EffectList[PLAYER_AMOUNT] = { 3001, 3002, 3003, 3004, 3005, 3006 };
+int g_EffectList[PLAYER_AMOUNT] = { 14001, 14002, 14003, 14004, 14005, 14006 };
 
 WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
 {
@@ -20,7 +20,10 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     int8_t* currentArmStyle = memory::readPointer<int8_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentArmStyle);
 
     if (!currentRightWep || !currentLeftWep || !currentArmStyle)
+    {
+        logger::println("Current Status not found");
         return;
+    }
 
     int32_t* primRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::primRightWep);
     int32_t* primLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::primLeftWep);
@@ -30,11 +33,17 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     int32_t* tertLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::tertLeftWep);
 
     if (!primRightWep || !primLeftWep || !secRightWep || !secLeftWep || !tertRightWep || !tertLeftWep)
+    {
+        logger::println("Weapon Adresses not found");
         return;
+    }
 
     EffectData* effectData = bases::SpEffectParamInst.GetCustomEffectById(a_iEffectID);
     if (!effectData)
+    {
+        logger::println("EffectData not found");
         return;
+    }
 
     int32_t rightItemID = 0;
     int32_t leftItemID = 0;
@@ -73,29 +82,30 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     switch (getInfusionValue(rightItemID))
     {
     case WeaponInfusion_Fire:
-    case WeaponInfusion_Fire2:
-        rightVfxID = g_FireEffectR;
+    case WeaponInfusion_Chaos:
+        rightVfxID = g_FireR;
         break;
     case WeaponInfusion_Lightning:
-        rightVfxID = g_LightningEffectR;
+        rightVfxID = g_LightningR;
         break;
-    case WeaponInfusion_Sacred:
-        rightVfxID = g_SacradEffectR;
+    case WeaponInfusion_Blessed:
+        rightVfxID = g_BlessedR;
         break;
-    case WeaponInfusion_Magic:
-        rightVfxID = g_MagicEffectR;
+    case WeaponInfusion_Simple:
+        rightVfxID = g_SimpleEffectR;
         break;
-    case WeaponInfusion_Cold:
-        rightVfxID = g_ColdEffectR;
+    case WeaponInfusion_Crystal:
+        rightVfxID = g_CrystalR;
         break;
-    case WeaponInfusion_Poison:
-        rightVfxID = g_PoisonEffectR;
+    case WeaponInfusion_Dark:
+    case WeaponInfusion_Deep:
+        rightVfxID = g_DarkR;
         break;
     case WeaponInfusion_Blood:
         rightVfxID = g_BloodEffectR;
         break;
-    case WeaponInfusion_Ocult:
-        rightVfxID = -1;
+    case WeaponInfusion_Poison:
+        rightVfxID = g_PoisonEffectR;
         break;
 
     default: break;
@@ -105,29 +115,30 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     switch (getInfusionValue(leftItemID))
     {
     case WeaponInfusion_Fire:
-    case WeaponInfusion_Fire2:
-        leftVfxID = g_FireEffectL;
+    case WeaponInfusion_Chaos:
+        leftVfxID = g_FireL;
         break;
     case WeaponInfusion_Lightning:
-        leftVfxID = g_LightningEffectL;
+        leftVfxID = g_LightningL;
         break;
-    case WeaponInfusion_Sacred:
-        leftVfxID = g_SacradEffectL;
+    case WeaponInfusion_Blessed:
+        leftVfxID = g_BlessedL;
         break;
-    case WeaponInfusion_Magic:
-        leftVfxID = g_MagicEffectL;
+    case WeaponInfusion_Simple:
+        leftVfxID = g_SimpleEffectL;
         break;
-    case WeaponInfusion_Cold:
-        leftVfxID = g_ColdEffectL;
+    case WeaponInfusion_Crystal:
+        leftVfxID = g_CrystalL;
         break;
-    case WeaponInfusion_Poison:
-        leftVfxID = g_PoisonEffectL;
+    case WeaponInfusion_Dark:
+    case WeaponInfusion_Deep:
+        leftVfxID = g_DarkL;
         break;
     case WeaponInfusion_Blood:
         leftVfxID = g_BloodEffectL;
         break;
-    case WeaponInfusion_Ocult:
-        leftVfxID = -1;
+    case WeaponInfusion_Poison:
+        leftVfxID = g_PoisonEffectL;
         break;
 
     default: break;
@@ -157,7 +168,7 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     effectData->vfxId = rightVfxID;
     effectData->vfxId1 = leftVfxID;
 
-    bases::AddEffect(*reinterpret_cast<uintptr_t**>(currentPlayerAdr), a_iEffectID, true);
+    bases::AddEffect(*reinterpret_cast<uintptr_t**>(currentPlayerAdr), a_iEffectID, *reinterpret_cast<uintptr_t**>(currentPlayerAdr));
 }
 
 void RemoveEffectForPlayers()
@@ -170,13 +181,14 @@ void RemoveEffectForPlayers()
         if (!currentPlayer || !*currentPlayer)
             continue;
 
-        bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), g_EffectList[i]);
+        bases::RemoveEffect(*memory::readPointer<uintptr_t**>(reinterpret_cast<uintptr_t>(currentPlayer), { 0x18, 0x18 }), g_EffectList[i]);
     }
 }
 
 bool InitInfusionEffects()
 {
     // Init Effect Modding
+    EffectData* reference = bases::SpEffectParamInst.GetEffectById(91);
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
         //EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
@@ -186,6 +198,7 @@ bool InitInfusionEffects()
             logger::println("Nullpointer EffectData");
             return false;
         }
+        *effectData = *reference; // Copy Base Effect values first into our newly created effect
 
         effectData->effectEndurance = -1.0f;
         effectData->spCategory = 0;

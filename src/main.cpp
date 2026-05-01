@@ -14,11 +14,6 @@ static void MainLoop()
         if (config::PhantomColorActive)
             SetDebugPhantomColor(i);
     }
-
-    /*uintptr_t* selfPlayer = *bases::getPlayerPtrByIndex(0);
-    uintptr_t* vfxModule = *memory::readPointerSafe<uintptr_t**>(reinterpret_cast<uintptr_t>(&selfPlayer), bases::playerOffsets::moduleChrVfxModule);
-    uintptr_t* sfxModule = *memory::readPointerSafe<uintptr_t**>(reinterpret_cast<uintptr_t>(&selfPlayer), bases::playerOffsets::moduleChrSfxModule);
-    EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(3160);*/
 }
 
 static DWORD WINAPI MainThread(LPVOID lpParam)
@@ -53,6 +48,8 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         Sleep(1000);
     }
 
+    logger::println("Bases initialized");
+
     DWORD delayTime = 6000;
     if (tries == TRIES)
         delayTime = 0;
@@ -65,11 +62,15 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
         return 0;
     }
 
+    logger::println("Menu initialized");
+
     if (!InitInfusionEffects())
     {
         FreeLibraryAndExitThread((HMODULE)lpParam, 0);
         return 0;
     }
+
+    logger::println("Effects Initialized!");
     
     while (g_pRunning)
     {
@@ -79,13 +80,11 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
 
     RemoveEffectForPlayers();
     DeactivatePhantomColor();
-
     MH_DisableHook(MH_ALL_HOOKS); // Ignore errors here for now
     MH_Uninitialize();
 
     Sleep(100);
     CleanUpMenu();
-
 
     FreeLibraryAndExitThread((HMODULE)lpParam, 0);
     return 0;

@@ -12,15 +12,16 @@ extern int g_EffectList[PLAYER_AMOUNT];
 
 enum WeaponInfusion
 {
-    WeaponInfusion_Fire = 4,
-    WeaponInfusion_Fire2 = 5,
-    WeaponInfusion_Lightning = 6,
-    WeaponInfusion_Sacred = 7,
-    WeaponInfusion_Magic = 8,
-    WeaponInfusion_Cold = 9,
-    WeaponInfusion_Poison = 10,
-    WeaponInfusion_Blood = 11,
-    WeaponInfusion_Ocult = 12,
+    WeaponInfusion_Simple = 4,
+    WeaponInfusion_Crystal = 5,
+    WeaponInfusion_Fire = 6,
+    WeaponInfusion_Chaos = 7,
+    WeaponInfusion_Lightning = 8,
+    WeaponInfusion_Deep = 9,
+    WeaponInfusion_Dark = 10,
+    WeaponInfusion_Poison = 11,
+    WeaponInfusion_Blood = 12,
+    WeaponInfusion_Blessed = 14,
 };
 
 WeaponInfusion getInfusionValue(int32_t a_iWeaponID);

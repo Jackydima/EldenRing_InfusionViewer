@@ -17,17 +17,11 @@ namespace bases
 	
 	uintptr_t** getPlayerPtrByIndex(int a_Index);
 
-	using AddEffect_t = void(*__stdcall)(uintptr_t* a_SelfPtr, int64_t a_EffectID, bool a_bDebug);
+	using AddEffect_t = void(*__stdcall)(uintptr_t* a_SelfPtr, int64_t a_EffectID, uintptr_t* a_OtherPtr);
 	extern AddEffect_t AddEffect;
 
 	using RemoveEffect_t = int64_t(*__stdcall)(uintptr_t* a_SpecialEffect, int32_t a_EffectID);
 	extern RemoveEffect_t RemoveEffect;
-
-	using CallVfx_f = void(*__stdcall)(uintptr_t* a_pCSChrVfxModule, int64_t vfxId, uintptr_t* a_pSPEffectObject);
-	extern CallVfx_f CallVfx;
-
-	using PrepareVfxResource_f = void(*__stdcall)(VFXResource* a_pVfxResource, int64_t a_VfxId, EffectData* a_pEffect );
-	extern PrepareVfxResource_f PrepareVfxResource;
 
 	using GetEffectDataById_t = void(*__stdcall)(GameEffectData* a_pEffectDataStruct, int32_t effectId);
 	extern GetEffectDataById_t GetEffectDataById;

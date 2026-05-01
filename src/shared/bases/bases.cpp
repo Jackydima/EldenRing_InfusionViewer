@@ -4,36 +4,35 @@ namespace bases
 {
     namespace playerGameDataOffset
     {
-        const std::vector<intptr_t> primRightWep = { 0x580, 0x39C };
-        const std::vector<intptr_t> primLeftWep = { 0x580, 0x398 };
+        const std::vector<intptr_t> primRightWep = { 0x1FA0, 0x330 };
+        const std::vector<intptr_t> primLeftWep = { 0x1FA0, 0x32C };
 
-        const std::vector<intptr_t> secRightWep = { 0x580, 0x3A4 };
-        const std::vector<intptr_t> secLeftWep = { 0x580, 0x3A0 };
+        const std::vector<intptr_t> secRightWep = { 0x1FA0, 0x338 };
+        const std::vector<intptr_t> secLeftWep = { 0x1FA0, 0x334 };
 
-        const std::vector<intptr_t> tertRightWep = { 0x580, 0x3AC };
-        const std::vector<intptr_t> tertLeftWep = { 0x580, 0x3A8 };
+        const std::vector<intptr_t> tertRightWep = { 0x1FA0, 0x340 };
+        const std::vector<intptr_t> tertLeftWep = { 0x1FA0, 0x33C };
 
-        const std::vector<intptr_t> currentLeftWep = { 0x580, 0x328 };
-        const std::vector<intptr_t> currentRightWep = { 0x580, 0x32C };
-        const std::vector<intptr_t> currentArmStyle = { 0x580, 0x324 };
+        const std::vector<intptr_t> currentLeftWep = { 0x1FA0, 0x2BC };
+        const std::vector<intptr_t> currentRightWep = { 0x1FA0, 0x2C0 };
+        const std::vector<intptr_t> currentArmStyle = { 0x1FA0, 0x2B8 };
     }
 
     namespace charactersOffset
     { 
-        const std::vector<intptr_t> playerInstance = { 0x10EF8, 0 * 0x10, 0 };
-        const std::vector<intptr_t> netPlayer1 = { 0x10EF8, 1 * 0x10, 0 };
-        const std::vector<intptr_t> netPlayer2 = { 0x10EF8, 2 * 0x10, 0 };
-        const std::vector<intptr_t> netPlayer3 = { 0x10EF8, 3 * 0x10, 0 };
-        const std::vector<intptr_t> netPlayer4 = { 0x10EF8, 4 * 0x10, 0 };
-        const std::vector<intptr_t> netPlayer5 = { 0x10EF8, 5 * 0x10, 0 };
+        const std::vector<intptr_t> playerInstance = { 0x40, 0 * 0x38, 0 };
+        const std::vector<intptr_t> netPlayer1 = { 0x40, 1 * 0x38, 0 };
+        const std::vector<intptr_t> netPlayer2 = { 0x40, 2 * 0x38, 0 };
+        const std::vector<intptr_t> netPlayer3 = { 0x40, 3 * 0x38, 0 };
+        const std::vector<intptr_t> netPlayer4 = { 0x40, 4 * 0x38, 0 };
+        const std::vector<intptr_t> netPlayer5 = { 0x40, 5 * 0x38, 0 };
     }
 
     namespace playerOffsets
     {
-        const std::vector<intptr_t> debugPhantomColor = { 0x538 };
-        const std::vector<intptr_t> moduleListPtr = { 0x190 };
-        const std::vector<intptr_t> moduleChrVfxModule = { 0x190, 0xB8 };
-        const std::vector<intptr_t> moduleChrSfxModule = { 0x190, 0xB0 };
+        const std::vector<intptr_t> debugPhantomColor = { 0x1F38 };
+        const std::vector<intptr_t> moduleListPtr = { 0x1F90 };
+        const std::vector<intptr_t> moduleChrSfxModule = { 0x1F90, 0xB0 };
     }
 
     // Foreward declarations
@@ -55,9 +54,6 @@ namespace bases
     AddEffect_t AddEffect = nullptr;
     RemoveEffect_t RemoveEffect = nullptr;
 
-    CallVfx_f CallVfx = nullptr;
-    PrepareVfxResource_f PrepareVfxResource = nullptr;
-
     GetEffectDataById_t GetEffectDataById = nullptr;
     GetEffectDataById_t OriginalGetEffectDataById = nullptr;
 
@@ -72,14 +68,14 @@ namespace bases
         uintptr_t result;
 
         // TGA Table AOB string
-        result = memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 05 48 8B 40 58 C3 C3", '?');
+        result = memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8B 05 ?? ?? ?? ?? 48 85 C0 ?? ?? 48 8B 40 ?? C3", '?');
         if (result == 0)
             return false;
 
         GameDataMan = getRIPAddress(result);
         logger::println("GameDataMan: %p", reinterpret_cast<LPVOID>(GameDataMan));
 
-        result = memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0F 48 39 88", '?');
+        result = memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8B 1D ?? ?? ?? 04 48 8B F9 48 85 DB ?? ?? 8B 11 85 D2 ?? ?? 8D", '?');
         if (result == 0)
             return false;
 
@@ -98,7 +94,7 @@ namespace bases
         if (!SpEffectParamInst.init(SoloParamRepository))
             return false;
 
-        AddEffect = reinterpret_cast<AddEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "0f 28 0d ?? ?? ?? ?? ?? 8d ?? ?? 0f 29 ?? ?? ?? 0f b6 d8", '?'));
+        AddEffect = reinterpret_cast<AddEffect_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "C6 40 B0 00 C7", '?'));
         logger::println("Address of g_AddEffect: %p", AddEffect);
         if (AddEffect == 0)
             return false;
@@ -109,22 +105,12 @@ namespace bases
         if (RemoveEffect == 0)
             return false;
 
-        CallVfx = reinterpret_cast<CallVfx_f>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "40 55 56 41 56 48 83 EC 70 33 C0 48 8B F1 83 CD FF", '?'));
-        logger::println("Address of CallVfx: %p", CallVfx);
-        if (CallVfx == 0)
-            return false;
-
-        PrepareVfxResource = reinterpret_cast<PrepareVfxResource_f>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "40 57 48 83 ec 40 48 c7 44 24 20 fe ff ff ff 48 89 5c 24 50 48 89 6c 24 58 48 89 74 24 60 8b fa 48 8b d9 33 ed 85 d2", '?'));
-        logger::println("Address of PrepareVfxResource: %p", PrepareVfxResource);
-        if (PrepareVfxResource == 0)
-            return false;
-
         GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8b 0d ?? ?? ?? ?? 45 33 c0 41 8d 50 0f", '?'));
         logger::println("Address of GetEffectDataById: %p", GetEffectDataById);
         if (GetEffectDataById == 0)
             return false;
 
-        GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(reinterpret_cast<intptr_t>(GetEffectDataById) - 0x68); // correction!
+        GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(reinterpret_cast<intptr_t>(GetEffectDataById) - 0x58); // correction!
 
         if (!HookFunctions())
             return false;
@@ -154,6 +140,7 @@ namespace bases
 
         a_pEffectDataStruct->effectData = effectDataPtr;
         a_pEffectDataStruct->effectID = a_EffectId;
+        a_pEffectDataStruct->value = -1;
         a_pEffectDataStruct->result = 0x4;
     }
 
@@ -163,7 +150,7 @@ namespace bases
         if (a_Index < 0 || a_Index > 6)
             return nullptr;
 
-        return memory::readPointer<uintptr_t**>(WorldChrMan, { 0x10EF8, a_Index * 0x10 });
+        return memory::readPointer<uintptr_t**>(WorldChrMan, { 0x40, a_Index * 0x38 });
     }
 
     static uintptr_t getRIPAddress(uintptr_t base, size_t a_lInstrLen, size_t a_lDataPtrOffset)

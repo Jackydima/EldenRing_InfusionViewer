@@ -22,7 +22,7 @@
     <ClCompile Include="thirdparty\imgui\imgui.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_demo.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_draw.cpp" />
-    <ClCompile Include="thirdparty\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="thirdparty\imgui\imgui_impl_dx11.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_tables.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_widgets.cpp" />
@@ -51,6 +51,7 @@
     <ProjectGuid>{bf30bd6c-c22b-42b7-88f6-f53a841a232f}</ProjectGuid>
     <RootNamespace>EldenRingInfusionViewer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>EldenRing_InfusionViewer</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

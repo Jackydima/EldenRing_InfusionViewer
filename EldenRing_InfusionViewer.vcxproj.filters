@@ -45,9 +45,6 @@
     <ClCompile Include="thirdparty\imgui\imgui_draw.cpp">
       <Filter>Quelldateien\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="thirdparty\imgui\imgui_impl_dx12.cpp">
-      <Filter>Quelldateien\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="thirdparty\imgui\imgui_impl_win32.cpp">
       <Filter>Quelldateien\imgui</Filter>
     </ClCompile>
@@ -62,6 +59,9 @@
     </ClCompile>
     <ClCompile Include="src\shared\scripts\scripts.cpp">
       <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\imgui\imgui_impl_dx11.cpp">
+      <Filter>Quelldateien\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
