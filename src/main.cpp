@@ -57,15 +57,20 @@ static DWORD WINAPI MainThread(LPVOID lpParam)
     // Alternatively check for initiated present calls, like wait for several frame presented
     if (!InitMenu((HMODULE)lpParam, &g_pRunning, delayTime))
     {
-        logger::println("Could not initilialize Hooking Rendering");
+        MH_DisableHook(MH_ALL_HOOKS); // Ignore errors here for now
+        MH_Uninitialize();
+
         FreeLibraryAndExitThread((HMODULE)lpParam, 0);
         return 0;
     }
 
-    logger::println("Menu initialized");
-
     if (!InitInfusionEffects())
     {
+        MH_DisableHook(MH_ALL_HOOKS); // Ignore errors here for now
+        MH_Uninitialize();
+        Sleep(100);
+        CleanUpMenu();
+
         FreeLibraryAndExitThread((HMODULE)lpParam, 0);
         return 0;
     }
