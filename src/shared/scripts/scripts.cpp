@@ -144,21 +144,6 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     default: break;
     }
 
-    // Used for resetting Old Effect during same infusions
-    static int32_t lastRightItemID = -1;
-    static int32_t lastLeftItemID = -1;
-    if (rightItemID != lastRightItemID)
-    {
-        rightVfxID = -1;
-        lastRightItemID = rightItemID;
-    }
-
-    if (leftItemID != lastLeftItemID)
-    {
-        leftVfxID = -1;
-        lastLeftItemID = leftItemID;
-    }
-
     // Fix for effect glitch when 2H holding left weapon!
     if (*currentArmStyle == 2)
     {
@@ -188,7 +173,7 @@ void RemoveEffectForPlayers()
 bool InitInfusionEffects()
 {
     // Init Effect Modding
-    EffectData* reference = bases::SpEffectParamInst.GetEffectById(91);
+    EffectData* reference = bases::SpEffectParamInst.GetEffectById(324800);
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
         //EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
@@ -220,26 +205,13 @@ bool InitInfusionEffects()
         effectData->vowType14 = 1;
         effectData->vowType15 = 1;
 
-        if (i == 0) // SelfPlayer
-        {
-            effectData->effectTargetSelf = 1;
-            effectData->effectTargetSelfTarget = 1;
-            effectData->effectTargetPlayer = 1;
-            effectData->effectTargetEnemy = 0;
-            effectData->effectTargetFriend = 0;
-            effectData->effectTargetEnemy = 0;
-
-        }
-        else
-        {
-            effectData->effectTargetSelfTarget = 0;
-            effectData->effectTargetSelf = 0;
-            effectData->effectTargetPlayer = 1;
-            effectData->effectTargetOpposeTarget = 1;
-            effectData->effectTargetEnemy = 1;
-            effectData->effectTargetFriend = 1;
-            effectData->effectTargetEnemy = 1;
-        }
+        effectData->effectTargetSelfTarget = 1;
+        effectData->effectTargetSelf = 1;
+        effectData->effectTargetPlayer = 1;
+        effectData->effectTargetOpposeTarget = 1;
+        effectData->effectTargetEnemy = 1;
+        effectData->effectTargetFriend = 1;
+        effectData->effectTargetEnemy = 1;
     }
     return true;
 }
