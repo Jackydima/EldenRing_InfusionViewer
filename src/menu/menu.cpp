@@ -20,6 +20,10 @@ using GetDeviceData_t = HRESULT(__stdcall*)(IDirectInputDevice8*, DWORD, LPDIDEV
 GetDeviceData_t OriginalGetDeviceData = nullptr;
 void* GetDeviceData_Func = nullptr;
 
+using XInputGetState_t = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
+XInputGetState_t OriginalXInputGetState = nullptr;
+void* XInputGetState_Func = nullptr;
+
 using GetRawInputData_t = UINT(WINAPI*)(HRAWINPUT, UINT, LPVOID, PUINT, UINT);
 GetRawInputData_t OriginalGetRawInputData = nullptr;
 void* GetRawInputData_Func = nullptr;
@@ -311,6 +315,24 @@ static HRESULT __stdcall Hook_GetDeviceData(IDirectInputDevice8* a_This, DWORD c
     return result;
 }
 
+// Controller Input
+static DWORD WINAPI Hook_XInputGetState(DWORD dwUserIndex, XINPUT_STATE* pState)
+{
+    auto result = OriginalXInputGetState(dwUserIndex, pState);
+    if (g_MenuActive)
+    {
+        pState->Gamepad.bLeftTrigger = 0;
+        pState->Gamepad.bRightTrigger = 0;
+        pState->Gamepad.sThumbLX = 0;
+        pState->Gamepad.sThumbLY = 0;
+        pState->Gamepad.sThumbRX = 0;
+        pState->Gamepad.sThumbRY = 0;
+        pState->Gamepad.wButtons = 0;
+    }
+
+    return result;
+}
+
 // Keyboard Inputs
 static UINT WINAPI Hook_GetRawInputData(HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader)
 {
@@ -432,6 +454,21 @@ static bool InitGameMenuPointers(HMODULE a_Module)
     pDIMouse->Release();
     pDirectInput->Release();
 
+    // XInput Pointers
+    HMODULE xinput1_3Handle = GetModuleHandleA("xinput1_3.dll");
+    if (xinput1_3Handle == NULL)
+    {
+        logger::println("No xinput1_3.dll loaded");
+        return false;
+    }
+
+    XInputGetState_Func = GetProcAddress(xinput1_3Handle, "XInputGetState");
+    if (!XInputGetState_Func)
+    {
+        logger::println("XInputGetState not found");
+        return false;
+    }
+
     HMODULE user32Handle = GetModuleHandleA("user32.dll");
     if (user32Handle == NULL)
     {
@@ -505,6 +542,17 @@ static bool StartHooking()
     if (MH_CreateHook(GetDeviceState_Func, &Hook_GetDeviceState, (LPVOID*)&OriginalGetDeviceState) != MH_OK)
     {
         logger::println("MH: Hook GetDeviceState failed");
+        return false;
+    }
+
+    if (!XInputGetState_Func)
+    {
+        logger::println("Getting XInputGetState function failed!");
+        return false;
+    }
+    if (MH_CreateHook(XInputGetState_Func, &Hook_XInputGetState, (LPVOID*)&OriginalXInputGetState) != MH_OK)
+    {
+        logger::println("MH: Hook XInputGetState failed");
         return false;
     }
 

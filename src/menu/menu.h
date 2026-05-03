@@ -12,11 +12,14 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 
+#include <Xinput.h>
+
 #pragma comment(lib, "libMinHook.x64.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "Dinput8.lib")
 #pragma comment(lib, "Dxguid.lib")
+#pragma comment(lib, "Xinput.lib")
 
 #include "../tools/debug_print.h"
 #include "../shared/config.h"
