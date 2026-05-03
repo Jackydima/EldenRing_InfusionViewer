@@ -133,21 +133,6 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     default: break;
     }
 
-    // Used for resetting Old Effect during same infusions
-    static int32_t lastRightItemID = -1;
-    static int32_t lastLeftItemID = -1;
-    if (rightItemID != lastRightItemID)
-    {
-        rightVfxID = -1;
-        lastRightItemID = rightItemID;
-    }
-
-    if (leftItemID != lastLeftItemID)
-    {
-        leftVfxID = -1;
-        lastLeftItemID = leftItemID;
-    }
-
     // Fix for effect glitch when 2H holding left weapon!
     if (*currentArmStyle == 2)
     {
