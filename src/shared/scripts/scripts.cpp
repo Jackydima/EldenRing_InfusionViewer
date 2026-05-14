@@ -139,6 +139,22 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
         rightVfxID = -1;
     }
 
+    // Fix for Swapping Weapons with same infusion
+    static int32_t LastRightWeaponArray[PLAYER_AMOUNT] = { -1, -1, -1, -1, -1, -1 };
+    if (LastRightWeaponArray[a_PlayerIndex] != rightItemID)
+    {
+        rightVfxID = -1;
+    }
+    LastRightWeaponArray[a_PlayerIndex] = rightItemID;
+
+    static int32_t LastLeftWeaponArray[PLAYER_AMOUNT] = { -1, -1, -1, -1, -1, -1 };
+    if (LastLeftWeaponArray[a_PlayerIndex] != leftItemID)
+    {
+        leftVfxID = -1;
+    }
+    LastLeftWeaponArray[a_PlayerIndex] = leftItemID;
+
+
     effectData->vfxId = rightVfxID;
     effectData->vfxId1 = leftVfxID;
 
