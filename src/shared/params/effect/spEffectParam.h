@@ -24,14 +24,13 @@ namespace bases
 		// Custom Created Effects
 		std::map<int32_t, EffectData> CustomEffectsMap;
 
-		EffectData* GetEffectById(int a_ID);
-
 	public:
 		SpEffectParam();
 		~SpEffectParam();
 		
 		bool init(uintptr_t SoloParamRepository) override;
 		void RestoreOriginalState() override;
+		EffectData* GetEffectById(int a_ID);
 		EffectData* StartEffectModdingById(int a_ID);
 		EffectData* CreateCustomEffect(int32_t a_EffectId);
 		EffectData* GetCustomEffectById(int32_t a_EffectId);

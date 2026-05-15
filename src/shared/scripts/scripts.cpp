@@ -188,6 +188,11 @@ bool InitInfusionEffects()
             return false;
         }
 
+        // Good Base Effect with default values!
+        const EffectData* baseEffectData = bases::SpEffectParamInst.GetEffectById(46);
+        *effectData = *baseEffectData; // Copy base values
+
+        // Still for safety
         effectData->effectEndurance = -1.0f;
         effectData->spCategory = 0;
         effectData->stateInfo = 0;

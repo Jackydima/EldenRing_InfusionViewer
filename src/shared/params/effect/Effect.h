@@ -805,21 +805,21 @@ struct EffectData
      * The amount of soul acquired when defeating an enemy is added by the
      * specified multiple.
      */
-    float soulRate{ 0.f };
+    float soulRate{ 1.f };
 
     /**
      * @brief Equipment weight change rate
      *
      * Multiply the maximum equipment weight by the set magnification
      */
-    float equipWeightChangeRate{ 0.f };
+    float equipWeightChangeRate{ 1.f };
 
     /**
      * @brief Possession weight change rate
      *
      * Multiply the maximum weight you have by the set magnification
      */
-    float allItemWeightChangeRate{ 0.f };
+    float allItemWeightChangeRate{ 1.f };
 
     /**
      * @brief Soul addition
@@ -902,19 +902,19 @@ struct EffectData
      *
      * Defense against HP robbed by NPCs in Soul Steel
      */
-    float soulStealRate{ 0.f };
+    float soulStealRate{ 1.f };
 
     /**
      * @brief Defense: Life factor
      */
-    float lifeReductionRate{ 0.f };
+    float lifeReductionRate{ 1.f };
 
     /**
      * @brief HP recovery coefficient
      *
      * It doesn't work when HP decreases.
      */
-    float hpRecoverRate{ 0.f };
+    float hpRecoverRate{ 1.f };
 
     /**
      * @brief Special effects to replace
