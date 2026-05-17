@@ -318,7 +318,8 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
         ImGui_ImplDX12_InitInfo initInfo = ImGui_ImplDX12_InitInfo();
         initInfo.CommandQueue = g_CommandQueue;
         initInfo.Device = g_Device;
-        initInfo.DSVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+        initInfo.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+        initInfo.DSVFormat = DXGI_FORMAT_UNKNOWN;
         initInfo.LegacySingleSrvCpuDescriptor = g_SrvHeap->GetCPUDescriptorHandleForHeapStart();
         initInfo.LegacySingleSrvGpuDescriptor = g_SrvHeap->GetGPUDescriptorHandleForHeapStart();
         initInfo.NumFramesInFlight = g_BufferCount;
