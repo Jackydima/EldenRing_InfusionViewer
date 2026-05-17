@@ -61,6 +61,8 @@ namespace bases
     GetEffectDataById_t GetEffectDataById = nullptr;
     GetEffectDataById_t OriginalGetEffectDataById = nullptr;
 
+    HasEffectId_t HasEffectId = nullptr;
+
 	bool initialize()
 	{
         if (!initCodeSegments())
@@ -125,6 +127,11 @@ namespace bases
             return false;
 
         GetEffectDataById = reinterpret_cast<GetEffectDataById_t>(reinterpret_cast<intptr_t>(GetEffectDataById) - 0x68); // correction!
+
+        HasEffectId = reinterpret_cast<HasEffectId_t>(memory::searchUniqueAOB(StartAddress, SizeOfVirtualMem, "48 8b 49 08 48 85 c9 74 15 0f 1f 80 00 00 00 00", '?'));
+        logger::println("Address of HasEffectId: %p", HasEffectId);
+        if (HasEffectId == 0)
+            return false;
 
         if (!HookFunctions())
             return false;

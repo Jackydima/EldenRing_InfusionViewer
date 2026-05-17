@@ -8,11 +8,8 @@ static void MainLoop()
 {
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
-        if (config::InfusionViewerActive)
-            ProcessPlayerInfusion(i, g_EffectList[i]);
-
-        if (config::PhantomColorActive)
-            SetDebugPhantomColor(i);
+        ProcessPlayerInfusion(i, g_EffectList[i]);
+        SetDebugPhantomColor(i);
     }
 
     /*uintptr_t* selfPlayer = *bases::getPlayerPtrByIndex(0);

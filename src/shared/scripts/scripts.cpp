@@ -11,9 +11,29 @@ WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
 
 void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
 {
+    static bool active[PLAYER_AMOUNT] = { false };
+
+    // Return early if infusionviewer is not active
+    if (!active[a_PlayerIndex] && !config::InfusionViewerActive)
+        return;
+
     uintptr_t currentPlayerAdr = reinterpret_cast<uintptr_t>(bases::getPlayerPtrByIndex(a_PlayerIndex));
     if (!currentPlayerAdr || !*reinterpret_cast<uintptr_t*>(currentPlayerAdr))
         return;
+
+    if (!config::InfusionViewerActive)
+    {
+        uintptr_t* specialEffectPtr = *memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayerAdr), 0x178);
+        if (!specialEffectPtr || !*specialEffectPtr)
+            return;
+        if (bases::HasEffectId(specialEffectPtr, a_iEffectID))
+        {
+            bases::RemoveEffect(specialEffectPtr, a_iEffectID);
+        }
+
+        active[a_PlayerIndex] = false;
+        return;
+    }
 
     int32_t* currentRightWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentRightWep);
     int32_t* currentLeftWep = memory::readPointer<int32_t*>(currentPlayerAdr, bases::playerGameDataOffset::currentLeftWep);
@@ -159,6 +179,8 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     effectData->vfxId1 = leftVfxID;
 
     bases::AddEffect(*reinterpret_cast<uintptr_t**>(currentPlayerAdr), a_iEffectID, true);
+
+    active[a_PlayerIndex] = true;
 }
 
 void RemoveEffectForPlayers()
@@ -256,6 +278,11 @@ void DeactivatePhantomColor()
 
 void SetDebugPhantomColor(int a_PlayerIndex)
 {
+    static bool active[PLAYER_AMOUNT] = { false };
+    // Early return if is was deactivated and phantomcolor was not active at all.
+    if (!active[a_PlayerIndex] && !config::PhantomColorActive)
+        return;
+
     uintptr_t** pCurrentPlayer= bases::getPlayerPtrByIndex(a_PlayerIndex);
     if (!pCurrentPlayer || !*pCurrentPlayer)
         return;
@@ -263,6 +290,14 @@ void SetDebugPhantomColor(int a_PlayerIndex)
     int32_t* debugPhantomColor = memory::readPointer<int32_t*>(reinterpret_cast<uintptr_t>(pCurrentPlayer), bases::playerOffsets::debugPhantomColor);
     if (!debugPhantomColor)
         return;
+
+    // Deactivate the active custom phantomcoloring
+    if (!config::PhantomColorActive)
+    {
+        *debugPhantomColor = -1;
+        active[a_PlayerIndex] = false;
+        return;
+    }
 
     switch (a_PlayerIndex)
     {
@@ -275,4 +310,6 @@ void SetDebugPhantomColor(int a_PlayerIndex)
     default:
         break;
     }
+
+    active[a_PlayerIndex] = true;
 }

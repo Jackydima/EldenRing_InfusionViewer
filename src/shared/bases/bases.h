@@ -32,6 +32,9 @@ namespace bases
 	using GetEffectDataById_t = void(*__stdcall)(GameEffectData* a_pEffectDataStruct, int32_t effectId);
 	extern GetEffectDataById_t GetEffectDataById;
 
+	using HasEffectId_t = bool(*__stdcall)(uintptr_t* a_pSpecialEffectPtr, int32_t effectId);
+	extern HasEffectId_t HasEffectId;
+
 	namespace playerGameDataOffset
 	{
 		extern const std::vector<intptr_t> primRightWep;

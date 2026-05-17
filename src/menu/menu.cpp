@@ -58,6 +58,7 @@ ID3D12GraphicsCommandList* g_CmdList = nullptr;
 static ID3D12Fence* g_fence = nullptr;
 static HANDLE g_fenceEvent = nullptr;
 static UINT64 g_fenceLastSignaledValue = 0;
+static bool g_SwapChainOccluded = false;
 
 // Menu globals
 bool g_Initialized = false;
@@ -76,16 +77,6 @@ static void WaitForPendingOperations();
 static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam);
 static bool StartHooking();
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-using CleanupFunction_t = void(__stdcall*)(void);
-static DWORD WINAPI CallForCleanUpFunction(LPVOID a_FunctionParam)
-{
-    CleanupFunction_t CleanUp = reinterpret_cast<CleanupFunction_t>(a_FunctionParam);
-    Sleep(config::cycleSpeed + 200);
-    CleanUp();
-    
-    return 0;
-}
 
 static LRESULT CALLBACK HookWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -151,14 +142,7 @@ static void RenderMenu()
 
             ImGui::SeparatorText("Infusion Viewer:");
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
-            if (ImGui::Checkbox("Infusion Viewer Active", &config::InfusionViewerActive))
-            {
-                if (!config::InfusionViewerActive)
-                {
-                    //RemoveEffectForPlayers();
-                    CreateThread(NULL, 0, &CallForCleanUpFunction, reinterpret_cast<LPVOID>(RemoveEffectForPlayers), 0, nullptr);
-                }
-            }
+            ImGui::Checkbox("Infusion Viewer Active", &config::InfusionViewerActive);
             ImGui::PopStyleVar();
 
             ImGui::SeparatorText("Debug Phantom Color:");
@@ -174,14 +158,7 @@ static void RenderMenu()
 
             ImGui::DragInt("Net5 PhantomId", &config::NetPlayer5Id, 1.0f, -1, 1000);
 
-            if (ImGui::Checkbox("Debug Phantom Coloring", &config::PhantomColorActive))
-            {
-                if (!config::PhantomColorActive)
-                {
-                    //DeactivatePhantomColor();
-                    CreateThread(NULL,0, &CallForCleanUpFunction, reinterpret_cast<LPVOID>(DeactivatePhantomColor), 0, nullptr);
-                }
-            }
+            ImGui::Checkbox("Debug Phantom Coloring", &config::PhantomColorActive);
 
             ImGui::EndTabItem();
         }
@@ -196,6 +173,10 @@ static void RenderMenu()
 // x64 this call has rcx for std call in the first parameter!
 static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
 {
+    // Special Test for occluded
+    if ((Flags & DXGI_PRESENT_TEST) == DXGI_PRESENT_TEST)
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+
     if (!g_Initialized)
     {
         IMGUI_CHECKVERSION();
@@ -360,6 +341,14 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     if (!g_MenuActive)
         return OriginalPresent(pSwapChain, SyncInterval, Flags);
 
+    // Handle window screen locked
+    if ((g_SwapChainOccluded && pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED) || ::IsIconic(g_Hwnd))
+    {
+        ::Sleep(10);
+        return OriginalPresent(pSwapChain, SyncInterval, Flags);
+    }
+    g_SwapChainOccluded = false;
+
     // ImGui frame
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -404,11 +393,10 @@ static HRESULT __stdcall Hook_Present(IDXGISwapChain* pSwapChain, UINT SyncInter
     frame.FenceValue = g_fenceLastSignaledValue;
 
     auto hr = OriginalPresent(pSwapChain, SyncInterval, Flags);
+    g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     if (hr != S_OK)
     {
-        auto reason = g_Device->GetDeviceRemovedReason();
         logger::println("Issue with Present: %x", hr);
-        logger::println("Reason: %x", reason);
     }
     return hr;
 }
