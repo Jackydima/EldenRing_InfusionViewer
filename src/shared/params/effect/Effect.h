@@ -2954,26 +2954,3 @@ struct Effect {
 	int32_t effectID;
     EffectData data;
 };
-
-const int g_FireEffectR = 62;
-const int g_FireEffectL = 5100;
-
-//const int g_LightningEffectR = 8720; // alt 8720, 151
-const int g_LightningEffectR = 151; // alt 8720, 151
-//const int g_LightningEffectL = 8721; // alt 8721, 5105;
-const int g_LightningEffectL = 5105; // alt 8721, 5105;
-
-const int g_SacradEffectR = 61;
-const int g_SacradEffectL = 5140;
-
-const int g_MagicEffectR = 64;
-const int g_MagicEffectL = 5115;
-
-const int g_ColdEffectR = 5092;
-const int  g_ColdEffectL = 5135;
-
-const int g_PoisonEffectR = 152;
-const int g_PoisonEffectL = 5110;
-
-const int g_BloodEffectR = 5090;
-const int g_BloodEffectL = 5125;

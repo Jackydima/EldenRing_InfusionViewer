@@ -27,6 +27,9 @@ WeaponInfusion getInfusionValue(int32_t a_iWeaponID);
 void ProcessPlayerInfusion(int a_CurrentPlayerIndex, int a_iEffectID);
 void RemoveEffectForPlayers();
 bool InitInfusionEffects();
+bool InitVisualCustomEffect(int a_iEffectID);
 
 void DeactivatePhantomColor();
 void SetDebugPhantomColor(int a_index);
+
+void ProcessCustomVisual();

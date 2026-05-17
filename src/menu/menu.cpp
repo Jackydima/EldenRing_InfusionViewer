@@ -132,11 +132,11 @@ static void RenderMenu()
         {
             //ImGui::Checkbox("Infusion Viewing Enabled", &config::InfusionViewerActive);
 
-            ImGui::SeparatorText("Info");
+            ImGui::SeparatorText("General");
             ImGui::Text("To open or close the Menu use the Keys 'ALT + Num1'");
             ImGui::Text("To Deactive and Unload this Mod press 'ALT + End'");
 
-            ImGui::SeparatorText("Info");
+            ImGui::SeparatorText("Cycling Speed");
             ImGui::Text("Define the Cyclespeed for updating the visual effects!");
             ImGui::DragInt("Cycle-Speed", &config::cycleSpeed, 1.0f, 1, 9999);
 
@@ -159,6 +159,48 @@ static void RenderMenu()
             ImGui::DragInt("Net5 PhantomId", &config::NetPlayer5Id, 1.0f, -1, 1000);
 
             ImGui::Checkbox("Debug Phantom Coloring", &config::PhantomColorActive);
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Extra Customization"))
+        {
+            ImGui::SeparatorText("Customization Info");
+            ImGui::Text("In this tab you can add customized effects on top of the infusionviewer");
+
+            
+            ImGui::SeparatorText("Customize EffectIds");
+            ImGui::DragInt("Fire RightHand", &config::VFX::g_FireEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Fire LeftHand", &config::VFX::g_FireEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Lightning RightHand", &config::VFX::g_LightningEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Lightning LeftHand", &config::VFX::g_LightningEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Sacred RightHand", &config::VFX::g_SacradEffectR, 1.0f, -1, 23107000);;
+            ImGui::DragInt("Sacred LeftHand", &config::VFX::g_SacradEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Magic RightHand", &config::VFX::g_MagicEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Magic LeftHand", &config::VFX::g_MagicEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Cold RightHand", &config::VFX::g_ColdEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Cold LeftHand", &config::VFX::g_ColdEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Poison RightHand", &config::VFX::g_PoisonEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Poison LeftHand", &config::VFX::g_PoisonEffectL, 1.0f, -1, 23107000);
+
+            ImGui::DragInt("Blood RightHand", &config::VFX::g_BloodEffectR, 1.0f, -1, 23107000);
+            ImGui::DragInt("Blood LeftHand", &config::VFX::g_BloodEffectL, 1.0f, -1, 23107000);
+
+            ImGui::SeparatorText("Extra Effect");
+            ImGui::DragInt("VFX", &config::ExtraVFX, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 1", &config::ExtraVFX1, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 2", &config::ExtraVFX2, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 3", &config::ExtraVFX3, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 4", &config::ExtraVFX4, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 5", &config::ExtraVFX5, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 6", &config::ExtraVFX6, 1.0f, -1, 23107000);
+            ImGui::DragInt("VFX 7", &config::ExtraVFX7, 1.0f, -1, 23107000);
+            ImGui::Checkbox("ExtraVisual Active", &config::ExtraVisualActive);
 
             ImGui::EndTabItem();
         }

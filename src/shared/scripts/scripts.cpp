@@ -3,6 +3,50 @@
 #include "scripts.h"
 
 int g_EffectList[PLAYER_AMOUNT] = { 3001, 3002, 3003, 3004, 3005, 3006 };
+const int customExtraEffectId = 3101;
+
+void ProcessCustomVisual()
+{
+    static bool active = false;
+
+    if (!active && !config::ExtraVisualActive)
+        return;
+
+    uintptr_t selfPlayerAddr = reinterpret_cast<uintptr_t>(bases::getPlayerPtrByIndex(0));
+    if (!selfPlayerAddr || !*reinterpret_cast<uintptr_t*>(selfPlayerAddr))
+        return;
+
+    uintptr_t* specialEffectPtr = *memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(selfPlayerAddr), 0x178);
+
+    if (!config::ExtraVisualActive)
+    {
+        if (!specialEffectPtr || !*specialEffectPtr)
+            return;
+        if (bases::HasEffectId(specialEffectPtr, customExtraEffectId))
+        {
+            bases::RemoveEffect(specialEffectPtr, customExtraEffectId);
+        }
+
+        active = false;
+        return;
+    }
+
+    EffectData* effectData = bases::SpEffectParamInst.GetCustomEffectById(customExtraEffectId);
+    if (!effectData)
+        return;
+
+    effectData->vfxId = config::ExtraVFX;
+    effectData->vfxId1 = config::ExtraVFX1;
+    effectData->vfxId2 = config::ExtraVFX2;
+    effectData->vfxId3 = config::ExtraVFX3;
+    effectData->vfxId4 = config::ExtraVFX4;
+    effectData->vfxId5 = config::ExtraVFX5;
+    effectData->vfxId6 = config::ExtraVFX6;
+    effectData->vfxId7 = config::ExtraVFX7;
+
+    bases::AddEffect(*reinterpret_cast<uintptr_t**>(selfPlayerAddr), customExtraEffectId, true);
+    active = true;
+}
 
 WeaponInfusion getInfusionValue(int32_t a_iWeaponID)
 {
@@ -94,25 +138,25 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     {
     case WeaponInfusion_Fire:
     case WeaponInfusion_Fire2:
-        rightVfxID = g_FireEffectR;
+        rightVfxID = config::VFX::g_FireEffectR;
         break;
     case WeaponInfusion_Lightning:
-        rightVfxID = g_LightningEffectR;
+        rightVfxID = config::VFX::g_LightningEffectR;
         break;
     case WeaponInfusion_Sacred:
-        rightVfxID = g_SacradEffectR;
+        rightVfxID = config::VFX::g_SacradEffectR;
         break;
     case WeaponInfusion_Magic:
-        rightVfxID = g_MagicEffectR;
+        rightVfxID = config::VFX::g_MagicEffectR;
         break;
     case WeaponInfusion_Cold:
-        rightVfxID = g_ColdEffectR;
+        rightVfxID = config::VFX::g_ColdEffectR;
         break;
     case WeaponInfusion_Poison:
-        rightVfxID = g_PoisonEffectR;
+        rightVfxID = config::VFX::g_PoisonEffectR;
         break;
     case WeaponInfusion_Blood:
-        rightVfxID = g_BloodEffectR;
+        rightVfxID = config::VFX::g_BloodEffectR;
         break;
     case WeaponInfusion_Ocult:
         rightVfxID = -1;
@@ -126,25 +170,25 @@ void ProcessPlayerInfusion(int a_PlayerIndex, int a_iEffectID)
     {
     case WeaponInfusion_Fire:
     case WeaponInfusion_Fire2:
-        leftVfxID = g_FireEffectL;
+        leftVfxID = config::VFX::g_FireEffectL;
         break;
     case WeaponInfusion_Lightning:
-        leftVfxID = g_LightningEffectL;
+        leftVfxID = config::VFX::g_LightningEffectL;
         break;
     case WeaponInfusion_Sacred:
-        leftVfxID = g_SacradEffectL;
+        leftVfxID = config::VFX::g_SacradEffectL;
         break;
     case WeaponInfusion_Magic:
-        leftVfxID = g_MagicEffectL;
+        leftVfxID = config::VFX::g_MagicEffectL;
         break;
     case WeaponInfusion_Cold:
-        leftVfxID = g_ColdEffectL;
+        leftVfxID = config::VFX::g_ColdEffectL;
         break;
     case WeaponInfusion_Poison:
-        leftVfxID = g_PoisonEffectL;
+        leftVfxID = config::VFX::g_PoisonEffectL;
         break;
     case WeaponInfusion_Blood:
-        leftVfxID = g_BloodEffectL;
+        leftVfxID = config::VFX::g_BloodEffectL;
         break;
     case WeaponInfusion_Ocult:
         leftVfxID = -1;
@@ -193,6 +237,11 @@ void RemoveEffectForPlayers()
         if (!currentPlayer || !*currentPlayer)
             continue;
 
+        if (i == 0)
+        {
+            // SelfPlayer
+            bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), customExtraEffectId);
+        }
         bases::RemoveEffect(*memory::readOffSet<uintptr_t**>(*reinterpret_cast<uintptr_t*>(currentPlayer), 0x178), g_EffectList[i]);
     }
 }
@@ -203,59 +252,58 @@ bool InitInfusionEffects()
     for (int i = 0; i < PLAYER_AMOUNT; i++)
     {
         //EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
-        EffectData* effectData = bases::SpEffectParamInst.CreateCustomEffect(g_EffectList[i]);
-        if (effectData == nullptr)
-        {
-            logger::println("Nullpointer EffectData");
+        if (!InitVisualCustomEffect(g_EffectList[i]))
             return false;
-        }
-
-        // Good Base Effect with default values!
-        const EffectData* baseEffectData = bases::SpEffectParamInst.GetEffectById(46);
-        *effectData = *baseEffectData; // Copy base values
-
-        // Still for safety
-        effectData->effectEndurance = -1.0f;
-        effectData->spCategory = 0;
-        effectData->stateInfo = 0;
-        effectData->vowType0 = 1;
-        effectData->vowType1 = 1;
-        effectData->vowType2 = 1;
-        effectData->vowType3 = 1;
-        effectData->vowType4 = 1;
-        effectData->vowType5 = 1;
-        effectData->vowType6 = 1;
-        effectData->vowType7 = 1;
-        effectData->vowType8 = 1;
-        effectData->vowType9 = 1;
-        effectData->vowType10 = 1;
-        effectData->vowType11 = 1;
-        effectData->vowType12 = 1;
-        effectData->vowType13 = 1;
-        effectData->vowType14 = 1;
-        effectData->vowType15 = 1;
-
-        if (i == 0) // SelfPlayer
-        {
-            effectData->effectTargetSelf = 1;
-            effectData->effectTargetSelfTarget = 1;
-            effectData->effectTargetPlayer = 1;
-            effectData->effectTargetEnemy = 0;
-            effectData->effectTargetFriend = 0;
-            effectData->effectTargetEnemy = 0;
-
-        }
-        else
-        {
-            effectData->effectTargetSelfTarget = 0;
-            effectData->effectTargetSelf = 0;
-            effectData->effectTargetPlayer = 1;
-            effectData->effectTargetOpposeTarget = 1;
-            effectData->effectTargetEnemy = 1;
-            effectData->effectTargetFriend = 1;
-            effectData->effectTargetEnemy = 1;
-        }
     }
+
+    // Extra Effect
+    if (!InitVisualCustomEffect(customExtraEffectId))
+        return false;
+    return true;
+}
+
+bool InitVisualCustomEffect(int a_iEffectID)
+{
+    //EffectData* effectData = bases::SpEffectParamInst.StartEffectModdingById(g_EffectList[i]);
+    EffectData* effectData = bases::SpEffectParamInst.CreateCustomEffect(a_iEffectID);
+    if (effectData == nullptr)
+    {
+        logger::println("Nullpointer EffectData");
+        return false;
+    }
+
+    // Good Base Effect with default values!
+    const EffectData* baseEffectData = bases::SpEffectParamInst.GetEffectById(46);
+    *effectData = *baseEffectData; // Copy base values
+
+    // Still for safety
+    effectData->effectEndurance = -1.0f;
+    effectData->spCategory = 0;
+    effectData->stateInfo = 0;
+    effectData->vowType0 = 1;
+    effectData->vowType1 = 1;
+    effectData->vowType2 = 1;
+    effectData->vowType3 = 1;
+    effectData->vowType4 = 1;
+    effectData->vowType5 = 1;
+    effectData->vowType6 = 1;
+    effectData->vowType7 = 1;
+    effectData->vowType8 = 1;
+    effectData->vowType9 = 1;
+    effectData->vowType10 = 1;
+    effectData->vowType11 = 1;
+    effectData->vowType12 = 1;
+    effectData->vowType13 = 1;
+    effectData->vowType14 = 1;
+    effectData->vowType15 = 1;
+
+    effectData->effectTargetSelfTarget = 1;
+    effectData->effectTargetSelf = 1;
+    effectData->effectTargetPlayer = 1;
+    effectData->effectTargetOpposeTarget = 1;
+    effectData->effectTargetEnemy = 1;
+    effectData->effectTargetFriend = 1;
+
     return true;
 }
 

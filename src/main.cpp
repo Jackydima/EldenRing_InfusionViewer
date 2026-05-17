@@ -12,6 +12,8 @@ static void MainLoop()
         SetDebugPhantomColor(i);
     }
 
+    ProcessCustomVisual();
+
     /*uintptr_t* selfPlayer = *bases::getPlayerPtrByIndex(0);
     uintptr_t* vfxModule = *memory::readPointerSafe<uintptr_t**>(reinterpret_cast<uintptr_t>(&selfPlayer), bases::playerOffsets::moduleChrVfxModule);
     uintptr_t* sfxModule = *memory::readPointerSafe<uintptr_t**>(reinterpret_cast<uintptr_t>(&selfPlayer), bases::playerOffsets::moduleChrSfxModule);

@@ -24,6 +24,7 @@
 
 #include "../tools/debug_print.h"
 #include "../shared/config.h"
+#include "../shared/scripts/scripts.h"
 
 struct FrameContext {
     ID3D12CommandAllocator* CommandAllocator;
